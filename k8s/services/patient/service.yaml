@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: his-patient
+  namespace: his-app
+  labels:
+    app: his-patient
+    app.kubernetes.io/name: his-patient
+    app.kubernetes.io/part-of: smart-his
+spec:
+  type: ClusterIP
+  selector:
+    app: his-patient
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+      protocol: TCP

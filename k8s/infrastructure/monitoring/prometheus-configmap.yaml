@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: his-infra
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: smart-his
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: smart-his
+
+    scrape_configs:
+      # Scrape pods that opt in via the prometheus.io/scrape annotation.
+      # Supported pod annotations:
+      #   prometheus.io/scrape: "true"                  (required)
+      #   prometheus.io/port:   "8080"                   (optional, overrides container port)
+      #   prometheus.io/path:   "/actuator/prometheus"   (optional, defaults to /actuator/prometheus)
+      - job_name: 'kubernetes-pods'
+        metrics_path: /actuator/prometheus
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          # Keep only pods annotated with prometheus.io/scrape: "true"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          # Override the metrics path when prometheus.io/path is present
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          # Override the scrape port when prometheus.io/port is present
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+          # Expose pod metadata as labels
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: replace
+            target_label: application
+          # Drop pods that are not running
+          - source_labels: [__meta_kubernetes_pod_phase]
+            action: drop
+            regex: (Pending|Succeeded|Failed|Unknown)

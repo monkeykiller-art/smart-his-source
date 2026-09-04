@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: his-operations
+  namespace: his-app
+  labels:
+    app: his-operations
+    app.kubernetes.io/name: his-operations
+    app.kubernetes.io/part-of: smart-his
+spec:
+  type: ClusterIP
+  selector:
+    app: his-operations
+  ports:
+    - name: http
+      port: 8085
+      targetPort: 8085
+      protocol: TCP

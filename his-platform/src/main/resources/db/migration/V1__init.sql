@@ -1,0 +1,1 @@
+-- Smart HIS platform schema init

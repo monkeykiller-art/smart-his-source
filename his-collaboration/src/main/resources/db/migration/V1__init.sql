@@ -1,0 +1,1 @@
+-- Smart HIS collaboration schema init

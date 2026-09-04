@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: his-app-config
+  namespace: his-app
+data:
+  NACOS_SERVER_ADDR: "nacos.his-infra.svc.cluster.local:8848"
+  NACOS_USERNAME: "nacos"
+  NACOS_NAMESPACE: ""
+  DB_HOST: "postgresql.his-infra.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "his"
+  DB_USER: "his"
+  REDIS_HOST: "redis.his-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  KAFKA_SERVERS: "kafka-0.kafka.his-infra.svc.cluster.local:9092"

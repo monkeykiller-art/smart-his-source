@@ -1,0 +1,12 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: nacos.his-infra.svc.cluster.local:8848
+  datasource:
+    url: jdbc:postgresql://postgresql.his-infra.svc.cluster.local:5432/his?currentSchema=his_cdss
+  data:
+    redis:
+      host: redis.his-infra.svc.cluster.local
+  kafka:
+    bootstrap-servers: kafka-0.kafka.his-infra.svc.cluster.local:9092,kafka-1.kafka.his-infra.svc.cluster.local:9092,kafka-2.kafka.his-infra.svc.cluster.local:9092

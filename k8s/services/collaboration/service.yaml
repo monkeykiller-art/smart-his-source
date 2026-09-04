@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: his-collaboration
+  namespace: his-app
+  labels:
+    app: his-collaboration
+    app.kubernetes.io/name: his-collaboration
+    app.kubernetes.io/part-of: smart-his
+spec:
+  type: ClusterIP
+  selector:
+    app: his-collaboration
+  ports:
+    - name: http
+      port: 8086
+      targetPort: 8086
+      protocol: TCP

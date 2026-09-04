@@ -1,0 +1,1 @@
+-- Smart HIS cdss schema init

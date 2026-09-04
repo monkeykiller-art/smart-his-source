@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: his-emergency
+  namespace: his-app
+  labels:
+    app: his-emergency
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8090
+      targetPort: 8090
+      protocol: TCP
+  selector:
+    app: his-emergency

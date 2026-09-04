@@ -1,0 +1,104 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: his-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        username: ${NACOS_USERNAME}
+        password: ${NACOS_PASSWORD}
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      routes:
+        - id: his-auth
+          uri: lb://his-auth
+          predicates:
+            - Path=/api/auth/**
+        - id: his-patient
+          uri: lb://his-patient
+          predicates:
+            - Path=/api/patient/**
+        - id: his-clinical
+          uri: lb://his-clinical
+          predicates:
+            - Path=/api/clinical/**
+        - id: his-resource
+          uri: lb://his-resource
+          predicates:
+            - Path=/api/resource/**
+        - id: his-operations
+          uri: lb://his-operations
+          predicates:
+            - Path=/api/operations/**
+        - id: his-collaboration
+          uri: lb://his-collaboration
+          predicates:
+            - Path=/api/collaboration/**
+        - id: his-pharma
+          uri: lb://his-pharma
+          predicates:
+            - Path=/api/pharma/**
+        - id: his-cdss
+          uri: lb://his-cdss
+          predicates:
+            - Path=/api/cdss/**
+        - id: his-drg
+          uri: lb://his-drg
+          predicates:
+            - Path=/api/drg/**
+        - id: his-emergency
+          uri: lb://his-emergency
+          predicates:
+            - Path=/api/emergency/**
+        - id: his-platform
+          uri: lb://his-platform
+          predicates:
+            - Path=/api/platform/**
+
+his:
+  jwt:
+    secret: ${HIS_JWT_SECRET}
+  security:
+    whitelist:
+      - /api/auth/login
+      - /api/auth/captcha
+      - /api/*/health
+      - /actuator/**
+      - /*/v3/api-docs/**
+      - /swagger-ui/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState
+  metrics:
+    tags:
+      application: his-gateway
+
+logging:
+  level:
+    root: INFO
+    com.smarthis: DEBUG
+    org.springframework.cloud.gateway: DEBUG

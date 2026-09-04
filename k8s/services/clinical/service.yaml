@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: his-clinical
+  namespace: his-app
+  labels:
+    app: his-clinical
+    app.kubernetes.io/name: his-clinical
+    app.kubernetes.io/part-of: smart-his
+spec:
+  type: ClusterIP
+  selector:
+    app: his-clinical
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083
+      protocol: TCP

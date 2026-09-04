@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: his-drg
+  namespace: his-app
+  labels:
+    app: his-drg
+    app.kubernetes.io/name: his-drg
+    app.kubernetes.io/part-of: smart-his
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: his-drg
+  template:
+    metadata:
+      labels:
+        app: his-drg
+        app.kubernetes.io/name: his-drg
+        app.kubernetes.io/part-of: smart-his
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8089"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+        - name: his-drg
+          image: smart-his/his-drg:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: his-app-config
+            - secretRef:
+                name: his-app-secret
+          env:
+            - name: JAVA_OPTS
+              value: "-XX:MaxRAMPercentage=70.0 -Djava.security.egd=file:/dev/./urandom"
+            - name: SPRING_PROFILES_ACTIVE
+              value: "k8s"
+          ports:
+            - name: http
+              containerPort: 8089
+              protocol: TCP
+          resources:
+            requests:
+              memory: "192Mi"
+              cpu: "100m"
+            limits:
+              memory: "640Mi"
+              cpu: "750m"
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8089
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8089
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8089
+            periodSeconds: 20
+            failureThreshold: 5

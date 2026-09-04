@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgresql-init
+  namespace: his-infra
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: postgresql-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: postgres:16-alpine
+          command: ["sh", "-c"]
+          args:
+            - |
+              until pg_isready -h postgresql.his-infra.svc.cluster.local -p 5432 -U postgres; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+              PGPASSWORD="$POSTGRES_PASSWORD" psql -v app_password="$DB_PASSWORD" -h postgresql.his-infra.svc.cluster.local -U postgres -d his -f /init/init.sql
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: his-infra-secret
+                  key: POSTGRES_PASSWORD
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: his-infra-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: init-sql
+              mountPath: /init
+      volumes:
+        - name: init-sql
+          configMap:
+            name: postgresql-init
