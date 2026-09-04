@@ -1,7 +1,6 @@
 package com.smarthis.pharma.service;
 
 import com.smarthis.common.model.PageResult;
-import com.smarthis.pharma.dto.request.RxReviewApproveRequest;
 import com.smarthis.pharma.dto.request.RxReviewCreateRequest;
 import com.smarthis.pharma.dto.request.RxReviewQueryRequest;
 import com.smarthis.pharma.dto.request.RxReviewRejectRequest;
@@ -11,11 +10,11 @@ public interface RxReviewService {
 
     RxReviewVo create(RxReviewCreateRequest request);
 
-    void approve(Long id, RxReviewApproveRequest request);
+    RxReviewVo approve(Long id, String reviewerId, String reviewerName);
 
-    void reject(Long id, RxReviewRejectRequest request);
+    RxReviewVo reject(Long id, String reviewerId, String reviewerName, String rejectReason);
 
     RxReviewVo getById(Long id);
 
-    PageResult<RxReviewVo> list(RxReviewQueryRequest request);
+    PageResult<RxReviewVo> query(RxReviewQueryRequest request);
 }

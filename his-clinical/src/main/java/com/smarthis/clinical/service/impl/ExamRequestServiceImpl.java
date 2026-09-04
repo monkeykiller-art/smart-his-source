@@ -3,6 +3,7 @@ package com.smarthis.clinical.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.smarthis.clinical.converter.ExamRequestConverter;
 import com.smarthis.clinical.dto.request.ExamRequestCreateRequest;
+import com.smarthis.clinical.dto.request.ExamRequestItemRequest;
 import com.smarthis.clinical.dto.response.ExamRequestVo;
 import com.smarthis.clinical.entity.ExamRequest;
 import com.smarthis.clinical.entity.ExamRequestItem;
@@ -41,7 +42,7 @@ public class ExamRequestServiceImpl implements ExamRequestService {
 
         List<ExamRequestItem> items = new ArrayList<>();
         int seq = 1;
-        for (ExamRequestCreateRequest.ExamRequestItemRequest itemReq : request.getItems()) {
+        for (ExamRequestItemRequest itemReq : request.getItems()) {
             ExamRequestItem item = ExamRequestConverter.toItemEntity(entity.getId(), seq++, itemReq);
             examRequestItemMapper.insert(item);
             items.add(item);

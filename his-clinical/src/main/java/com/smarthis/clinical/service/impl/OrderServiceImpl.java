@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.smarthis.clinical.converter.OrderConverter;
 import com.smarthis.clinical.dto.request.OrderCancelRequest;
 import com.smarthis.clinical.dto.request.OrderCreateRequest;
+import com.smarthis.clinical.dto.request.OrderItemRequest;
 import com.smarthis.clinical.dto.request.OrderVerifyRequest;
 import com.smarthis.clinical.dto.response.OrderVo;
 import com.smarthis.clinical.entity.Order;
@@ -43,7 +44,7 @@ public class OrderServiceImpl implements OrderService {
 
         List<OrderItem> items = new ArrayList<>();
         int seq = 1;
-        for (OrderCreateRequest.OrderItemRequest itemReq : request.getItems()) {
+        for (OrderItemRequest itemReq : request.getItems()) {
             OrderItem item = OrderConverter.toItemEntity(order.getId(), seq++, itemReq);
             orderItemMapper.insert(item);
             items.add(item);
@@ -93,7 +94,7 @@ public class OrderServiceImpl implements OrderService {
         order.setOrderStatus("CANCELLED");
         order.setCancelNurseId(request.getNurseId());
         order.setCancelTime(LocalDateTime.now());
-        order.setCancelReason(request.getCancelReason());
+        order.setCancelReason(request.getReason());
         orderMapper.updateById(order);
         log.info("Order cancelled: id={}", id);
     }

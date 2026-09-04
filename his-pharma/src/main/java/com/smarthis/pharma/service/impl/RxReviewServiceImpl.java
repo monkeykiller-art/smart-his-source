@@ -110,7 +110,7 @@ public class RxReviewServiceImpl implements RxReviewService {
 
     @Override
     @Transactional
-    public RxReviewVo approve(Long id, Long reviewerId, String reviewerName) {
+    public RxReviewVo approve(Long id, String reviewerId, String reviewerName) {
         RxReview review = getEntity(id);
         if ("REJECTED".equals(review.getReviewStatus())) {
             throw new BusinessException(ErrorCode.RX_REVIEW_REJECTED);
@@ -132,7 +132,7 @@ public class RxReviewServiceImpl implements RxReviewService {
 
     @Override
     @Transactional
-    public RxReviewVo reject(Long id, Long reviewerId, String reviewerName, String rejectReason) {
+    public RxReviewVo reject(Long id, String reviewerId, String reviewerName, String rejectReason) {
         RxReview review = getEntity(id);
         review.setReviewStatus("REJECTED");
         review.setReviewResult("ERROR");

@@ -74,6 +74,9 @@ his:
     secret: ${HIS_JWT_SECRET}
   security:
     whitelist:
+      - /
+      - /index.html
+      - /assets/**
       - /api/auth/login
       - /api/auth/captcha
       - /api/*/health

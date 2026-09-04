@@ -5,15 +5,11 @@ import com.smarthis.pharma.dto.request.DrugContraindicationCreateRequest;
 import com.smarthis.pharma.dto.request.DrugContraindicationQueryRequest;
 import com.smarthis.pharma.dto.response.DrugContraindicationVo;
 
-import java.util.List;
-
 public interface DrugContraindicationService {
 
     DrugContraindicationVo create(DrugContraindicationCreateRequest request);
 
-    void delete(Long id);
+    PageResult<DrugContraindicationVo> query(DrugContraindicationQueryRequest request);
 
-    List<DrugContraindicationVo> listByDrugCode(String drugCode);
-
-    PageResult<DrugContraindicationVo> list(DrugContraindicationQueryRequest request);
+    DrugContraindicationVo update(Long id, DrugContraindicationCreateRequest request);
 }

@@ -8,7 +8,9 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class DrugInteractionQueryRequest extends PageQuery {
 
-    private String drugCode;
+    private String drugCodeA;
+
+    private String drugCodeB;
 
     private String interactionLevel;
 }

@@ -19,6 +19,7 @@ Thumbs.db
 *.local
 application-local.yml
 application-local.yaml
+.run/
 
 # Generated compiler arguments
 javac.*.args

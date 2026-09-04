@@ -12,5 +12,7 @@ public class CdssAlertConfigQueryRequest extends PageQuery {
 
     private String alertLevel;
 
+    private Long deptId;
+
     private Integer isEnabled;
 }

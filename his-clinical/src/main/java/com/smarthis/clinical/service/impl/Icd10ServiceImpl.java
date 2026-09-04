@@ -36,7 +36,7 @@ public class Icd10ServiceImpl implements Icd10Service {
     }
 
     @Override
-    public PageResult<Icd10Vo> query(Icd10QueryRequest request) {
+    public PageResult<Icd10Vo> search(Icd10QueryRequest request) {
         LambdaQueryWrapper<Icd10> query = new LambdaQueryWrapper<>();
         query.eq(Icd10::getDeleted, 0);
         if (StringUtils.hasText(request.getKeyword())) {

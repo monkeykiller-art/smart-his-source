@@ -69,4 +69,10 @@ public final class FeeTemplateConverter {
     public static List<FeeTemplateItemVo> toItemVoList(List<FeeTemplateItem> items) {
         return items.stream().map(FeeTemplateConverter::toItemVo).toList();
     }
+
+    public static FeeTemplateVo toVoWithItems(FeeTemplate template, List<FeeTemplateItem> items) {
+        FeeTemplateVo vo = toVo(template);
+        vo.setItems(toItemVoList(items));
+        return vo;
+    }
 }

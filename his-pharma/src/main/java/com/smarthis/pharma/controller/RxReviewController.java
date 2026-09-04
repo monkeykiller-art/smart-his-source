@@ -35,14 +35,14 @@ public class RxReviewController {
 
     @PutMapping("/{id}/approve")
     public ApiResponse<RxReviewVo> approve(@PathVariable Long id,
-                                           @RequestParam(required = false) Long reviewerId,
+                                           @RequestParam(required = false) String reviewerId,
                                            @RequestParam(required = false) String reviewerName) {
         return ApiResponse.ok(rxReviewService.approve(id, reviewerId, reviewerName));
     }
 
     @PutMapping("/{id}/reject")
     public ApiResponse<RxReviewVo> reject(@PathVariable Long id,
-                                          @RequestParam(required = false) Long reviewerId,
+                                          @RequestParam(required = false) String reviewerId,
                                           @RequestParam(required = false) String reviewerName,
                                           @Valid @RequestBody RxReviewRejectRequest request) {
         return ApiResponse.ok(rxReviewService.reject(id, reviewerId, reviewerName, request.getRejectReason()));

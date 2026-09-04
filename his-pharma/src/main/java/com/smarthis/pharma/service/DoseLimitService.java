@@ -5,15 +5,11 @@ import com.smarthis.pharma.dto.request.DoseLimitCreateRequest;
 import com.smarthis.pharma.dto.request.DoseLimitQueryRequest;
 import com.smarthis.pharma.dto.response.DoseLimitVo;
 
-import java.util.List;
-
 public interface DoseLimitService {
 
     DoseLimitVo create(DoseLimitCreateRequest request);
 
-    void delete(Long id);
+    PageResult<DoseLimitVo> query(DoseLimitQueryRequest request);
 
-    List<DoseLimitVo> listByDrugCode(String drugCode);
-
-    PageResult<DoseLimitVo> list(DoseLimitQueryRequest request);
+    DoseLimitVo update(Long id, DoseLimitCreateRequest request);
 }

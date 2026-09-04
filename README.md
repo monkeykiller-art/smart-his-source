@@ -1,6 +1,6 @@
 # Smart HIS
 
-新一代智慧医院信息系统（HIS）后端工程，基于 Java 21、Spring Boot 3 与 Spring Cloud 构建。
+新一代智慧医院信息系统（HIS），基于 Java 21、Spring Boot 3 与 Spring Cloud 构建。网关内置轻量业务工作台，覆盖方案中的患者、临床、资源、运营和协同五大域。
 
 ## 模块
 
@@ -19,3 +19,11 @@ cp .env.example .env
 # Edit .env and provide secure values first.
 docker compose up -d
 ```
+
+Windows 可在填写 `.env` 后一键启动基础设施、全部服务和工作台：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1
+```
+
+启动完成后访问 `http://localhost:8080`。工作台由网关直接托管，不需要单独安装 Node.js。

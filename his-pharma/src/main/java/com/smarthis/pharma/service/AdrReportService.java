@@ -10,9 +10,11 @@ public interface AdrReportService {
 
     AdrReportVo create(AdrReportCreateRequest request);
 
-    void review(Long id, AdrReportReviewRequest request);
+    AdrReportVo review(Long id, AdrReportReviewRequest request);
 
     AdrReportVo getById(Long id);
 
-    PageResult<AdrReportVo> list(AdrReportQueryRequest request);
+    PageResult<AdrReportVo> query(AdrReportQueryRequest request);
+
+    AdrReportVo reportToAuthority(Long id);
 }
