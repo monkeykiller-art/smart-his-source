@@ -103,6 +103,12 @@ class BuildConfigurationTest {
                 "Local verification must reject Java versions other than 21");
         assertTrue(script.contains("clean verify"),
                 "Local verification must run the full Maven verification lifecycle");
+        assertTrue(script.contains("[switch]$RequireEmptyMavenRepository"),
+                "Local verification must support an empty Maven repository check");
+        assertTrue(script.contains("Maven repository must be empty"),
+                "Local verification must reject a populated repository in clean-cache mode");
+        assertTrue(script.contains("& $maven -B -ntp"),
+                "Local verification must use non-interactive Maven output");
     }
 
     private Path findProjectRoot() {

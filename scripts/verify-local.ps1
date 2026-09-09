@@ -2,7 +2,8 @@
 param(
     [string]$JavaHome = $env:JAVA_HOME,
     [string]$MavenHome = $env:MAVEN_HOME,
-    [string]$MavenRepository
+    [string]$MavenRepository,
+    [switch]$RequireEmptyMavenRepository
 )
 
 $ErrorActionPreference = "Stop"
@@ -52,6 +53,13 @@ if (-not $MavenHome) {
 if (-not $MavenRepository) {
     $MavenRepository = Join-Path $workspaceRoot "work\maven-repo"
 }
+
+if ($RequireEmptyMavenRepository -and (Test-Path $MavenRepository)) {
+    $existingItem = Get-ChildItem -Force -Path $MavenRepository | Select-Object -First 1
+    if ($existingItem) {
+        throw "Maven repository must be empty: $MavenRepository"
+    }
+}
 New-Item -ItemType Directory -Force -Path $MavenRepository | Out-Null
 
 $env:JAVA_HOME = $JavaHome
@@ -68,5 +76,5 @@ Write-Host "JAVA_HOME=$JavaHome"
 Write-Host "MAVEN_HOME=$MavenHome"
 Write-Host "MAVEN_REPOSITORY=$MavenRepository"
 
-& $maven "-Dmaven.repo.local=$MavenRepository" clean verify
+& $maven -B -ntp "-Dmaven.repo.local=$MavenRepository" clean verify
 exit $LASTEXITCODE

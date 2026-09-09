@@ -30,6 +30,15 @@ powershell -ExecutionPolicy Bypass -File scripts/verify-local.ps1
 
 脚本也支持通过 `-JavaHome`、`-MavenHome` 和 `-MavenRepository` 指定自定义安装位置。
 
+验证项目没有使用未声明的本地制品时，请指定一个新的缓存目录并要求它必须为空：
+
+```powershell
+$cleanRepository = Join-Path $env:TEMP "smart-his-maven-$([guid]::NewGuid())"
+powershell -ExecutionPolicy Bypass -File scripts/verify-local.ps1 `
+  -MavenRepository $cleanRepository `
+  -RequireEmptyMavenRepository
+```
+
 使用 Docker Compose 启动本地基础设施：
 
 ```bash
