@@ -6,13 +6,17 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class SqlPortabilityLintTest {
+
+    private static final Pattern VERSIONED_MIGRATION = Pattern.compile("^V([^_]+)__.+\\.sql$");
 
     private static final List<Pattern> FORBIDDEN = List.of(
             Pattern.compile("(?i)\\bSERIAL\\b"),
@@ -43,7 +47,7 @@ class SqlPortabilityLintTest {
         Files.walkFileTree(root, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (file.toString().contains("db/migration") && file.toString().endsWith(".sql")) {
+                if (isMigration(file)) {
                     String content = Files.readString(file);
                     String relativePath = root.relativize(file).toString();
                     checkContent(content, relativePath, violations);
@@ -54,6 +58,48 @@ class SqlPortabilityLintTest {
 
         assertTrue(violations.isEmpty(),
                 "SQL portability violations found:\n" + String.join("\n", violations));
+    }
+
+    @Test
+    void migrationVersionsMustBeUniqueWithinEachModule() throws IOException {
+        Path root = findProjectRoot();
+        Map<String, Path> migrationsByModuleAndVersion = new HashMap<>();
+        List<String> duplicates = new ArrayList<>();
+        int[] migrationCount = {0};
+
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                if (!isMigration(file)) {
+                    return FileVisitResult.CONTINUE;
+                }
+
+                migrationCount[0]++;
+                String fileName = file.getFileName().toString();
+                var matcher = VERSIONED_MIGRATION.matcher(fileName);
+                if (!matcher.matches()) {
+                    return FileVisitResult.CONTINUE;
+                }
+
+                Path relativePath = root.relativize(file);
+                String module = relativePath.getName(0).toString();
+                String key = module + ":" + matcher.group(1);
+                Path previous = migrationsByModuleAndVersion.putIfAbsent(key, relativePath);
+                if (previous != null) {
+                    duplicates.add(key + " -> " + previous + ", " + relativePath);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+
+        assertTrue(migrationCount[0] > 0, "No Flyway migration files were discovered");
+        assertTrue(duplicates.isEmpty(),
+                "Duplicate Flyway migration versions found:\n" + String.join("\n", duplicates));
+    }
+
+    private boolean isMigration(Path file) {
+        String normalizedPath = file.toString().replace('\\', '/');
+        return normalizedPath.contains("/db/migration/") && normalizedPath.endsWith(".sql");
     }
 
     private void checkContent(String content, String filePath, List<String> violations) {
