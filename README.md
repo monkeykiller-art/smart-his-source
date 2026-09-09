@@ -8,8 +8,18 @@
 
 ## 构建
 
+需要安装 Java 21。项目通过 Maven Wrapper 固定使用 Maven 3.9.16，无需单独安装 Maven。
+
+Linux / macOS：
+
 ```bash
-mvn clean package
+./mvnw clean verify
+```
+
+Windows：
+
+```powershell
+.\mvnw.cmd clean verify
 ```
 
 使用 Docker Compose 启动本地基础设施：
