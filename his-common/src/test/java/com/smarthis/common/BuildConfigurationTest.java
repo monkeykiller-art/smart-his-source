@@ -57,6 +57,21 @@ class BuildConfigurationTest {
                 "Dependency review job is missing");
     }
 
+    @Test
+    void windowsLocalVerificationMustConfigureThePinnedToolchain() throws IOException {
+        Path root = findProjectRoot();
+        String script = Files.readString(root.resolve("scripts/verify-local.ps1"));
+
+        assertTrue(script.contains("$env:JAVA_HOME = $JavaHome"),
+                "Local verification must configure JAVA_HOME for the test process");
+        assertTrue(script.contains("$env:MAVEN_HOME = $MavenHome"),
+                "Local verification must configure MAVEN_HOME for the test process");
+        assertTrue(script.contains("version \"21\\."),
+                "Local verification must reject Java versions other than 21");
+        assertTrue(script.contains("clean verify"),
+                "Local verification must run the full Maven verification lifecycle");
+    }
+
     private Path findProjectRoot() {
         Path current = Paths.get("").toAbsolutePath();
         while (current != null) {

@@ -22,6 +22,14 @@ Windows：
 .\mvnw.cmd clean verify
 ```
 
+如果 Java 和 Maven 安装在工作区工具链目录，Windows 可使用项目脚本自动配置当前测试进程并执行全量验证：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/verify-local.ps1
+```
+
+脚本也支持通过 `-JavaHome`、`-MavenHome` 和 `-MavenRepository` 指定自定义安装位置。
+
 使用 Docker Compose 启动本地基础设施：
 
 ```bash
