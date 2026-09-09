@@ -44,6 +44,39 @@ class BuildConfigurationTest {
     }
 
     @Test
+    void parentPomMustPinTestPluginsAndEnforceDependencyHygiene() throws IOException {
+        Path root = findProjectRoot();
+        String parentPom = Files.readString(root.resolve("pom.xml"));
+        String commonPom = Files.readString(root.resolve("his-common/pom.xml"));
+        String patientPom = Files.readString(root.resolve("his-patient/pom.xml"));
+
+        assertTrue(parentPom.contains("<maven-compiler-plugin.version>"),
+                "Compiler plugin version must be pinned");
+        assertTrue(parentPom.contains("<maven-surefire-plugin.version>"),
+                "Surefire plugin version must be pinned");
+        assertTrue(parentPom.contains("<maven-failsafe-plugin.version>"),
+                "Failsafe plugin version must be pinned");
+        assertTrue(parentPom.contains("<goal>integration-test</goal>"),
+                "Failsafe must participate in the integration-test lifecycle");
+        assertTrue(parentPom.contains("<dependencyConvergence/>"),
+                "Dependency convergence rule is missing");
+        assertTrue(parentPom.contains("<banDuplicateClasses>"),
+                "Duplicate class rule is missing");
+        assertTrue(parentPom.contains("<bannedDependencies>"),
+                "Banned dependency rule is missing");
+        assertTrue(parentPom.contains("<artifactId>extra-enforcer-rules</artifactId>"),
+                "Extra Enforcer Rules dependency is missing");
+        assertTrue(parentPom.contains("<artifactId>hapi-fhir-base</artifactId>"),
+                "HAPI FHIR base version must be managed consistently");
+        assertTrue(commonPom.contains("<artifactId>jcl-over-slf4j</artifactId>"),
+                "Common module must exclude HAPI's duplicate logging bridge");
+        assertTrue(patientPom.contains("<artifactId>jcl-over-slf4j</artifactId>"),
+                "Patient module must exclude HAPI's duplicate logging bridge");
+        assertTrue(patientPom.contains("<artifactId>checker-qual</artifactId>"),
+                "Patient module must exclude PostgreSQL's conflicting annotation dependency");
+    }
+
+    @Test
     void continuousIntegrationMustVerifyLinuxAndWindows() throws IOException {
         Path root = findProjectRoot();
         String workflow = Files.readString(root.resolve(".github/workflows/verify.yml"));
