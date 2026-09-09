@@ -99,7 +99,8 @@ class SqlPortabilityLintTest {
 
     private boolean isMigration(Path file) {
         String normalizedPath = file.toString().replace('\\', '/');
-        return normalizedPath.contains("/db/migration/") && normalizedPath.endsWith(".sql");
+        return normalizedPath.contains("/src/main/resources/db/migration/")
+                && normalizedPath.endsWith(".sql");
     }
 
     private void checkContent(String content, String filePath, List<String> violations) {
