@@ -66,8 +66,12 @@ $env:JAVA_HOME = $JavaHome
 $env:MAVEN_HOME = $MavenHome
 $env:PATH = "$JavaHome\bin;$MavenHome\bin;$env:PATH"
 
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 $javaVersion = & (Join-Path $JavaHome "bin\java.exe") -version 2>&1
-if ($LASTEXITCODE -ne 0 -or ($javaVersion -join "`n") -notmatch 'version "21\.') {
+$javaExitCode = $LASTEXITCODE
+$ErrorActionPreference = $previousErrorActionPreference
+if ($javaExitCode -ne 0 -or ($javaVersion -join "`n") -notmatch 'version "21\.') {
     throw "Smart HIS requires Java 21. Detected:`n$($javaVersion -join "`n")"
 }
 

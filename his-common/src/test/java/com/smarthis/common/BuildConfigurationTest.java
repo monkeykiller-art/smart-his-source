@@ -135,6 +135,14 @@ class BuildConfigurationTest {
                 "Local verification must configure MAVEN_HOME for the test process");
         assertTrue(script.contains("version \"21\\."),
                 "Local verification must reject Java versions other than 21");
+        assertTrue(script.contains("$previousErrorActionPreference = $ErrorActionPreference"),
+                "Local verification must preserve the caller's PowerShell error policy");
+        assertTrue(script.contains("$ErrorActionPreference = \"Continue\""),
+                "Windows PowerShell must accept java -version output written to stderr");
+        assertTrue(script.contains("$javaExitCode = $LASTEXITCODE"),
+                "Local verification must validate the Java process exit code");
+        assertTrue(script.contains("$ErrorActionPreference = $previousErrorActionPreference"),
+                "Local verification must restore the caller's PowerShell error policy");
         assertTrue(script.contains("clean verify"),
                 "Local verification must run the full Maven verification lifecycle");
         assertTrue(script.contains("[switch]$RequireEmptyMavenRepository"),
