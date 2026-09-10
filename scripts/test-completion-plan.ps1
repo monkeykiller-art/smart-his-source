@@ -11,6 +11,8 @@ $content = Get-Content -LiteralPath $planPath -Raw -Encoding UTF8
 $requiredMarkers = @(
     'smart-his-source',
     '625',
+    '13 项',
+    'reactive-streams-1.0.4.jar',
     'Testcontainers PostgreSQL',
     'clean verify',
     'OpenAPI',
@@ -64,6 +66,26 @@ $acceptanceMarker = -join @(
 $acceptanceHeadingCount = ([regex]::Matches($content, [regex]::Escape($acceptanceMarker))).Count
 if ($acceptanceHeadingCount -lt 6) {
     throw 'Every delivery stage must define acceptance criteria.'
+}
+
+$requiredCurrentCapabilities = @(
+    '患者建档',
+    '门诊挂号',
+    'Token 刷新',
+    'Playwright',
+    'Outbox',
+    'SBOM'
+)
+
+foreach ($capability in $requiredCurrentCapabilities) {
+    if (-not $content.Contains($capability)) {
+        throw "Completion plan is missing current or planned capability: $capability"
+    }
+}
+
+$milestoneCount = ([regex]::Matches($content, '\| M[1-6] ')).Count
+if ($milestoneCount -ne 6) {
+    throw "Expected six delivery milestones, found $milestoneCount."
 }
 
 Write-Host 'PROJECT_COMPLETION_PLAN.md structure validation passed.'
