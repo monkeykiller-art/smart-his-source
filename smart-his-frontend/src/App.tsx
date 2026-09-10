@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConfigProvider } from 'antd'
+import { Spin } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
@@ -11,6 +13,7 @@ import { ProtectedRoute } from '@/router/ProtectedRoute'
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 })
+const PatientPage = lazy(() => import('@/pages/patient/PatientPage').then((module) => ({ default: module.PatientPage })))
 
 export default function App() {
   return (
@@ -22,7 +25,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route index element={<DashboardPage />} />
-                <Route path="patient" element={<PlaceholderPage title="患者服务" />} />
+                <Route path="patient" element={<Suspense fallback={<Spin fullscreen tip="正在加载患者服务" />}><PatientPage /></Suspense>} />
                 <Route path="clinical" element={<PlaceholderPage title="临床诊疗" />} />
                 <Route path="resource" element={<PlaceholderPage title="资源保障" />} />
                 <Route path="operations" element={<PlaceholderPage title="运营管理" />} />
