@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,6 +75,39 @@ class BuildConfigurationTest {
                 "Patient module must exclude HAPI's duplicate logging bridge");
         assertTrue(patientPom.contains("<artifactId>checker-qual</artifactId>"),
                 "Patient module must exclude PostgreSQL's conflicting annotation dependency");
+    }
+
+    @Test
+    void runtimeInfrastructureDependenciesMustBelongToExecutableServices() throws IOException {
+        Path root = findProjectRoot();
+        String parentPom = Files.readString(root.resolve("pom.xml"));
+        int dependenciesStart = parentPom.indexOf("<dependencies>",
+                parentPom.indexOf("</dependencyManagement>"));
+        int dependenciesEnd = parentPom.indexOf("</dependencies>", dependenciesStart);
+        String inheritedDependencies = parentPom.substring(dependenciesStart, dependenciesEnd);
+        List<String> runtimeArtifacts = List.of(
+                "spring-boot-starter-actuator",
+                "spring-cloud-starter-alibaba-nacos-discovery",
+                "spring-cloud-starter-alibaba-nacos-config",
+                "spring-cloud-starter-bootstrap",
+                "micrometer-registry-prometheus");
+
+        for (String artifact : runtimeArtifacts) {
+            assertFalse(inheritedDependencies.contains("<artifactId>" + artifact + "</artifactId>"),
+                    artifact + " must not be inherited from the parent POM");
+        }
+
+        List<String> serviceModules = List.of(
+                "his-gateway", "his-auth", "his-patient", "his-clinical",
+                "his-resource", "his-operations", "his-collaboration", "his-pharma",
+                "his-cdss", "his-drg", "his-emergency", "his-platform");
+        for (String module : serviceModules) {
+            String modulePom = Files.readString(root.resolve(module).resolve("pom.xml"));
+            for (String artifact : runtimeArtifacts) {
+                assertTrue(modulePom.contains("<artifactId>" + artifact + "</artifactId>"),
+                        module + " must declare " + artifact);
+            }
+        }
     }
 
     @Test
