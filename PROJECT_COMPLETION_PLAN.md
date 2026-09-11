@@ -35,7 +35,7 @@
 ### 2.2 当前阻塞和缺口
 
 - Windows 全量 `clean verify` 在 `his-common` 编译时无法关闭 Maven 缓存中的 `reactive-streams-1.0.4.jar`，后端构建基线仍为红色。
-- 625 个主 Java 类只有 4 个后端测试类；18 个 Flyway 脚本没有真实 PostgreSQL 空库和升级测试。
+- 625 个主 Java 类只有 4 个原有后端测试类；18 个 Flyway 脚本已纳入统一迁移测试模块，待安装 Docker 后完成真实 PostgreSQL 16 空库验收。
 - 登录到发药的主业务流程没有端到端自动验证。
 - 临床、资源、运营和药事前端仍是占位页面。
 - 动态 RBAC 菜单、按钮权限、403 页面和 Playwright 测试尚未建立。
@@ -91,7 +91,7 @@
 
 任务：
 
-1. 用 Testcontainers PostgreSQL 为 12 个 schema 增加空库 Flyway 迁移测试。
+1. 用 Testcontainers PostgreSQL 为 11 个服务 schema 增加空库 Flyway 迁移测试。
 2. 保存上一发布版本结构基线，增加升级到最新版本的测试。
 3. `his-patient`：覆盖患者去重、号源并发、挂号取消、入出院转换和 FHIR 映射。
 4. `his-clinical`：覆盖主次诊断、医嘱状态机和病历签名后禁止修改。

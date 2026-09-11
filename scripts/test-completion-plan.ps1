@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $planPath = Join-Path $repositoryRoot 'PROJECT_COMPLETION_PLAN.md'
@@ -14,6 +14,7 @@ $requiredMarkers = @(
     '13 项',
     'reactive-streams-1.0.4.jar',
     'Testcontainers PostgreSQL',
+    '待安装 Docker 后完成真实 PostgreSQL 16 空库验收',
     'clean verify',
     'OpenAPI',
     'OpenTelemetry',

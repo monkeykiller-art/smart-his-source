@@ -50,6 +50,7 @@ class BuildConfigurationTest {
         String parentPom = Files.readString(root.resolve("pom.xml"));
         String commonPom = Files.readString(root.resolve("his-common/pom.xml"));
         String patientPom = Files.readString(root.resolve("his-patient/pom.xml"));
+        String migrationTestsPom = Files.readString(root.resolve("his-migration-tests/pom.xml"));
 
         assertTrue(parentPom.contains("<maven-compiler-plugin.version>"),
                 "Compiler plugin version must be pinned");
@@ -75,6 +76,10 @@ class BuildConfigurationTest {
                 "Patient module must exclude HAPI's duplicate logging bridge");
         assertTrue(patientPom.contains("<artifactId>checker-qual</artifactId>"),
                 "Patient module must exclude PostgreSQL's conflicting annotation dependency");
+        assertTrue(parentPom.contains("<testcontainers.version>2.0.5</testcontainers.version>"),
+                "Testcontainers must remain on the JUnit 4-free 2.x line");
+        assertTrue(migrationTestsPom.contains("<artifactId>testcontainers-postgresql</artifactId>"),
+                "Migration tests must use the Testcontainers 2.x PostgreSQL module");
     }
 
     @Test
@@ -122,6 +127,10 @@ class BuildConfigurationTest {
                 "Windows clean verify command is missing");
         assertTrue(workflow.contains("actions/dependency-review-action@v4"),
                 "Dependency review job is missing");
+        assertTrue(workflow.contains("REQUIRE_MIGRATION_TESTS: \"true\""),
+                "Linux CI must require PostgreSQL migration tests");
+        assertTrue(Files.isDirectory(root.resolve("his-migration-tests")),
+                "PostgreSQL migration test module is missing");
     }
 
     @Test

@@ -21,6 +21,8 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Verify reactor
+        env:
+          REQUIRE_MIGRATION_TESTS: "true"
         run: ./mvnw -B clean verify
       - name: Upload test reports
         if: always()
