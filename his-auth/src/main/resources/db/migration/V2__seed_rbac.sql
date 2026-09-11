@@ -184,7 +184,7 @@ INSERT INTO auth_user_role (id, user_id, role_id, created_by, created_time) VALU
 -- ========================= ROLE-PERMISSION =========================
 -- ADMIN: all permissions (10001-10112)
 INSERT INTO auth_role_permission (id, role_id, permission_id, created_by, created_time)
-SELECT 10000 + gs, 1, gs, 'system', CURRENT_TIMESTAMP
+SELECT gs, 1, gs, 'system', CURRENT_TIMESTAMP
 FROM generate_series(10001, 10112) AS gs;
 
 -- OUTPATIENT_DOCTOR (role 2): patient + clinical + resource read + cdss

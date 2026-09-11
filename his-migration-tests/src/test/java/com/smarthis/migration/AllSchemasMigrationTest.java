@@ -15,6 +15,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -91,10 +92,16 @@ class AllSchemasMigrationTest {
                     () -> "Flyway validation failed for " + service.getKey());
 
             MigrationInfo[] applied = flyway.info().applied();
-            assertEquals(expectedCount, applied.length,
+            long appliedVersionedCount = Arrays.stream(applied)
+                    .filter(migration -> migration.getVersion() != null)
+                    .count();
+            assertEquals(expectedCount, appliedVersionedCount,
                     () -> "Flyway history is incomplete for " + service.getKey());
             assertTrue(countBusinessTables(service.getValue()) > 0,
                     () -> "Migration did not create business tables for " + service.getKey());
+            if ("his-auth".equals(service.getKey())) {
+                assertAuthRolePermissionSeedData();
+            }
         }
 
         assertEquals(18, discoveredMigrationCount,
@@ -117,6 +124,32 @@ class AllSchemasMigrationTest {
                 resultSet.next();
                 return resultSet.getInt(1);
             }
+        }
+    }
+
+    private void assertAuthRolePermissionSeedData() throws Exception {
+        assertEquals(112, queryForInt("""
+                SELECT count(*)
+                FROM his_auth.auth_role_permission
+                WHERE role_id = 1
+                """), "The administrator role must receive every seeded permission");
+        assertEquals(112, queryForInt("""
+                SELECT count(*)
+                FROM his_auth.auth_role_permission role_permission
+                JOIN his_auth.auth_permission permission
+                  ON permission.id = role_permission.permission_id
+                WHERE role_permission.role_id = 1
+                  AND role_permission.id = permission.id
+                """), "Administrator role-permission IDs must not overlap other role ranges");
+    }
+
+    private int queryForInt(String sql) throws Exception {
+        try (Connection connection = DriverManager.getConnection(
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+            resultSet.next();
+            return resultSet.getInt(1);
         }
     }
 
