@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { http } from './http'
 import { patientApi } from './patientApi'
 
-vi.mock('./http', () => ({ http: { get: vi.fn(), post: vi.fn() } }))
+vi.mock('./http', () => ({ http: { get: vi.fn(), post: vi.fn(), put: vi.fn() } }))
 
 const patient = {
   id: 1,
@@ -30,5 +30,13 @@ describe('patientApi', () => {
     const request = { name: '张三', idType: 'ID_CARD', idNo: patient.idNo, phone: patient.phone }
     await expect(patientApi.create(request)).resolves.toEqual(patient)
     expect(http.post).toHaveBeenCalledWith('/patient/patients', request)
+  })
+
+  it('puts editable patient fields without changing the identity document', async () => {
+    vi.mocked(http.put).mockResolvedValue({ data: { code: 200, message: 'success', data: { ...patient, phone: '13900139000', allergyHistory: '青霉素' } } })
+    const request = { name: '张三', phone: '13900139000', allergyHistory: '青霉素' }
+    await expect(patientApi.update(patient.id, request)).resolves.toMatchObject(request)
+    expect(http.put).toHaveBeenCalledWith('/patient/patients/1', request)
+    expect(request).not.toHaveProperty('idNo')
   })
 })

@@ -1,10 +1,10 @@
-import { EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons'
+import { EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Card, Descriptions, Drawer, Form, Input, Modal, Select, Space, Table, Tag, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { useState } from 'react'
 import { patientApi } from '@/services/patientApi'
-import type { Patient, PatientCreateRequest } from '@/types/patient'
+import type { Patient, PatientCreateRequest, PatientUpdateRequest } from '@/types/patient'
 import { maskIdNumber, maskPhone } from '@/utils/maskSensitive'
 
 const idTypes = [{ value: 'ID_CARD', label: '居民身份证' }, { value: 'PASSPORT', label: '护照' }, { value: 'OTHER', label: '其他证件' }]
@@ -17,7 +17,9 @@ export function PatientPage() {
   const [size, setSize] = useState(20)
   const [createOpen, setCreateOpen] = useState(false)
   const [selected, setSelected] = useState<Patient | null>(null)
+  const [editing, setEditing] = useState<Patient | null>(null)
   const [form] = Form.useForm<PatientCreateRequest>()
+  const [editForm] = Form.useForm<PatientUpdateRequest>()
   const [messageApi, messageContext] = message.useMessage()
   const queryClient = useQueryClient()
 
@@ -32,6 +34,36 @@ export function PatientPage() {
     },
     onError: () => messageApi.error('患者建档失败，请检查证件是否重复或服务是否可用。'),
   })
+  const updatePatient = useMutation({
+    mutationFn: ({ id, request }: { id: number; request: PatientUpdateRequest }) => patientApi.update(id, request),
+    onSuccess: async (patient) => {
+      messageApi.success(`患者 ${patient.name} 的资料已更新`)
+      setEditing(null)
+      setSelected(patient)
+      await queryClient.invalidateQueries({ queryKey: ['patients'] })
+    },
+    onError: () => messageApi.error('患者资料保存失败，请检查输入内容或服务连接。'),
+  })
+
+  const openEdit = (patient: Patient) => {
+    setEditing(patient)
+    editForm.setFieldsValue({
+      name: patient.name,
+      gender: patient.gender,
+      birthDate: patient.birthDate,
+      nationality: patient.nationality,
+      nation: patient.nation,
+      maritalStatus: patient.maritalStatus,
+      occupation: patient.occupation,
+      phone: patient.phone,
+      phoneBackup: patient.phoneBackup,
+      address: patient.address,
+      bloodType: patient.bloodType,
+      allergyHistory: patient.allergyHistory,
+      insuranceType: patient.insuranceType,
+      insuranceNo: patient.insuranceNo,
+    })
+  }
 
   const columns: TableColumnsType<Patient> = [
     { title: '患者主索引', dataIndex: 'empiNo', width: 160, render: (value) => <strong>{value}</strong> },
@@ -76,9 +108,28 @@ export function PatientPage() {
         </Form>
       </Modal>
 
-      <Drawer title="患者档案" width={520} open={Boolean(selected)} onClose={() => setSelected(null)}>
-        {selected && <><div className="patient-profile"><div className="patient-avatar"><TeamOutlined /></div><div><h2>{selected.name}</h2><Space><Tag>{genderText[selected.gender]}</Tag><Tag color="cyan">{selected.empiNo}</Tag></Space></div></div><Descriptions column={1} bordered size="small" items={[{ key: 'birthDate', label: '出生日期', children: selected.birthDate || '—' }, { key: 'idNo', label: '证件号码', children: maskIdNumber(selected.idNo) }, { key: 'phone', label: '手机号', children: maskPhone(selected.phone) }, { key: 'insurance', label: '医保类型', children: selected.insuranceType || '自费' }, { key: 'blood', label: '血型', children: selected.bloodType || '未登记' }, { key: 'allergy', label: '过敏史', children: selected.allergyHistory || '未登记' }, { key: 'address', label: '联系地址', children: selected.address || '未登记' }]} /></>}
+      <Drawer title="患者档案" width={520} open={Boolean(selected)} onClose={() => setSelected(null)} extra={selected && <Button icon={<EditOutlined />} onClick={() => openEdit(selected)}>编辑资料</Button>}>
+        {selected && <><div className="patient-profile"><div className="patient-avatar"><TeamOutlined /></div><div><h2>{selected.name}</h2><Space><Tag>{genderText[selected.gender]}</Tag><Tag color="cyan">{selected.empiNo}</Tag></Space></div></div><Descriptions column={1} bordered size="small" items={[{ key: 'birthDate', label: '出生日期', children: selected.birthDate || '—' }, { key: 'idNo', label: '证件号码', children: maskIdNumber(selected.idNo) }, { key: 'phone', label: '手机号', children: maskPhone(selected.phone) }, { key: 'insurance', label: '医保类型', children: selected.insuranceType || '自费' }, { key: 'insuranceNo', label: '医保编号', children: selected.insuranceNo || '未登记' }, { key: 'blood', label: '血型', children: selected.bloodType || '未登记' }, { key: 'allergy', label: '过敏史', children: selected.allergyHistory || '未登记' }, { key: 'address', label: '联系地址', children: selected.address || '未登记' }]} /></>}
       </Drawer>
+
+      <Modal title="编辑患者资料" open={Boolean(editing)} width={720} onCancel={() => setEditing(null)} onOk={() => editForm.submit()} confirmLoading={updatePatient.isPending} okText="保存修改" cancelText="取消" destroyOnHidden>
+        {editing && <Alert type="info" showIcon message={`患者主索引：${editing.empiNo}`} description={`身份凭证 ${maskIdNumber(editing.idNo)} 不能在此修改；如有错误，请按医院患者主索引更正流程处理。`} style={{ marginBottom: 18 }} />}
+        <Form<PatientUpdateRequest> form={editForm} layout="vertical" onFinish={(request) => editing && updatePatient.mutate({ id: editing.id, request })}>
+          <div className="patient-form-grid">
+            <Form.Item label="姓名" name="name" rules={[{ required: true, message: '请输入患者姓名' }]}><Input /></Form.Item>
+            <Form.Item label="性别" name="gender"><Select options={[{ value: 0, label: '未知' }, { value: 1, label: '男' }, { value: 2, label: '女' }, { value: 9, label: '未说明' }]} /></Form.Item>
+            <Form.Item label="出生日期" name="birthDate"><Input type="date" /></Form.Item>
+            <Form.Item label="国籍" name="nationality"><Input /></Form.Item>
+            <Form.Item label="手机号" name="phone" rules={[{ required: true, message: '请输入手机号' }, { pattern: /^1\d{10}$/, message: '请输入有效的手机号' }]}><Input /></Form.Item>
+            <Form.Item label="备用电话" name="phoneBackup"><Input /></Form.Item>
+            <Form.Item label="血型" name="bloodType"><Select allowClear options={['A', 'B', 'AB', 'O', 'UNKNOWN'].map((value) => ({ value, label: value }))} /></Form.Item>
+            <Form.Item label="医保类型" name="insuranceType"><Select allowClear options={[{ value: 'SELF_PAY', label: '自费' }, { value: 'EMPLOYEE', label: '职工医保' }, { value: 'RESIDENT', label: '居民医保' }]} /></Form.Item>
+            <Form.Item className="form-span-2" label="医保编号" name="insuranceNo"><Input /></Form.Item>
+            <Form.Item className="form-span-2" label="联系地址" name="address"><Input /></Form.Item>
+            <Form.Item className="form-span-2" label="过敏史" name="allergyHistory"><Input.TextArea rows={3} placeholder="无过敏史请填写“无”" /></Form.Item>
+          </div>
+        </Form>
+      </Modal>
     </>
   )
 }

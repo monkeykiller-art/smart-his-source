@@ -29,22 +29,35 @@ export function LoginPage() {
 
   return (
     <main className="login-shell">
-      <section className="login-hero">
-        <div className="brand"><span className="brand-mark"><MedicineBoxOutlined /></span>SMART HIS</div>
-        <div className="hero-copy"><h1>让每一次诊疗<br />更准确、更从容</h1><p>统一连接患者、临床、药事、资源与运营数据，为医护人员提供清晰、可靠的协作工作台。</p><div className="hero-points"><span>统一身份认证</span><span>全过程审计</span><span>实时服务监测</span></div></div>
-      </section>
-      <section className="login-panel">
-        <div className="login-card">
-          <h2>欢迎回来</h2><p>请使用医院统一账号登录系统</p>
-          {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 20 }} />}
-          <Form<LoginRequest> layout="vertical" size="large" onFinish={handleSubmit} requiredMark={false}>
-            <Form.Item name="username" label="账号" rules={[{ required: true, message: '请输入账号' }]}><Input prefix={<UserOutlined />} autoComplete="username" placeholder="请输入工号或账号" /></Form.Item>
-            <Form.Item name="password" label="密码" rules={[{ required: true, message: '请输入密码' }]}><Input.Password prefix={<LockOutlined />} autoComplete="current-password" placeholder="请输入密码" /></Form.Item>
-            <Button block type="primary" htmlType="submit" loading={loading}>登录系统</Button>
-          </Form>
-          <div className="login-footnote"><SafetyCertificateOutlined /> 连接受保护，请勿向他人透露账号凭据</div>
-        </div>
-      </section>
+      <header className="login-header">
+        <div className="login-brand"><span className="login-brand-mark"><MedicineBoxOutlined /></span><div><strong>Smart HIS</strong><span>智慧医院信息系统</span></div></div>
+        <span className="login-header-note">医院内部业务系统</span>
+      </header>
+      <div className="login-main">
+        <section className="login-intro">
+          <span className="system-label">HOSPITAL INFORMATION SYSTEM</span>
+          <h1>统一诊疗工作入口</h1>
+          <p>连接患者、挂号、临床、药事、资源与运营业务，为院内工作人员提供统一的日常操作入口。</p>
+          <dl className="login-system-info">
+            <div><dt>系统状态</dt><dd><span className="status-dot" />正常服务</dd></div>
+            <div><dt>访问范围</dt><dd>院内授权用户</dd></div>
+            <div><dt>技术支持</dt><dd>信息中心</dd></div>
+          </dl>
+        </section>
+        <section className="login-panel">
+          <div className="login-card">
+            <div className="login-card-heading"><span>用户登录</span><h2>登录 Smart HIS</h2><p>请输入医院统一身份认证账号</p></div>
+            {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 18 }} />}
+            <Form<LoginRequest> layout="vertical" onFinish={handleSubmit} requiredMark={false}>
+              <Form.Item name="username" label="工号或账号" rules={[{ required: true, message: '请输入账号' }]}><Input prefix={<UserOutlined />} autoComplete="username" placeholder="请输入工号或账号" /></Form.Item>
+              <Form.Item name="password" label="登录密码" rules={[{ required: true, message: '请输入密码' }]}><Input.Password prefix={<LockOutlined />} autoComplete="current-password" placeholder="请输入登录密码" /></Form.Item>
+              <Button block type="primary" htmlType="submit" loading={loading}>登录</Button>
+            </Form>
+            <div className="login-footnote"><SafetyCertificateOutlined /> 请使用本人账号，所有操作均记录审计日志</div>
+          </div>
+        </section>
+      </div>
+      <footer className="login-footer">Smart HIS · 院内系统请勿在公共设备上保存密码</footer>
     </main>
   )
 }

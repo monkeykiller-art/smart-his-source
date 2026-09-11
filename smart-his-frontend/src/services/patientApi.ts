@@ -1,6 +1,6 @@
 import { http } from './http'
 import type { ApiResponse, PageResult } from '@/types/api'
-import type { Patient, PatientCreateRequest, PatientQuery } from '@/types/patient'
+import type { Patient, PatientCreateRequest, PatientQuery, PatientUpdateRequest } from '@/types/patient'
 
 export const patientApi = {
   async query(query: PatientQuery) {
@@ -13,6 +13,10 @@ export const patientApi = {
   },
   async create(request: PatientCreateRequest) {
     const response = await http.post<ApiResponse<Patient>>('/patient/patients', request)
+    return response.data.data
+  },
+  async update(id: number, request: PatientUpdateRequest) {
+    const response = await http.put<ApiResponse<Patient>>(`/patient/patients/${id}`, request)
     return response.data.data
   },
 }

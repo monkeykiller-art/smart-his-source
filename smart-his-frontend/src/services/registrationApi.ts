@@ -1,6 +1,6 @@
 import { http } from './http'
 import type { ApiResponse, PageResult } from '@/types/api'
-import type { Department, Doctor, Registration, RegistrationCreateRequest, RegistrationQuery, Schedule, ScheduleQuery } from '@/types/registration'
+import type { Department, Doctor, Encounter, Registration, RegistrationCreateRequest, RegistrationQuery, Schedule, ScheduleQuery } from '@/types/registration'
 
 export const registrationApi = {
   async listDepartments() {
@@ -24,7 +24,23 @@ export const registrationApi = {
     return response.data.data
   },
   async cancel(id: number, reason: string) {
-    const response = await http.put<ApiResponse<Registration>>(`/patient/registrations/${id}/cancel`, undefined, { params: { reason } })
+    await http.put<ApiResponse<void>>(`/patient/registrations/${id}/cancel`, undefined, { params: { reason } })
+  },
+  async markPaid(id: number, billId?: number) {
+    await http.put<ApiResponse<void>>(`/patient/registrations/${id}/pay`, undefined, { params: billId ? { billId } : {} })
+  },
+  async refund(id: number, reason: string) {
+    await http.put<ApiResponse<void>>(`/patient/registrations/${id}/refund`, undefined, { params: { reason } })
+  },
+  async getEncounterByRegistration(registrationId: number) {
+    const response = await http.get<ApiResponse<Encounter>>(`/patient/encounters/by-reg/${registrationId}`)
     return response.data.data
+  },
+  async openEncounter(registrationId: number, chiefComplaint?: string) {
+    const response = await http.post<ApiResponse<Encounter>>('/patient/encounters', { regId: registrationId, chiefComplaint })
+    return response.data.data
+  },
+  async closeEncounter(encounterId: number) {
+    await http.put<ApiResponse<void>>(`/patient/encounters/${encounterId}/close`)
   },
 }

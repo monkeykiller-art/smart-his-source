@@ -50,3 +50,5 @@ export interface PatientCreateRequest {
   insuranceType?: string
   insuranceNo?: string
 }
+
+export type PatientUpdateRequest = Omit<PatientCreateRequest, 'idType' | 'idNo'>
