@@ -72,6 +72,7 @@ if ($acceptanceHeadingCount -lt 6) {
 $requiredCurrentCapabilities = @(
     '患者建档',
     '门诊挂号',
+    '临床接诊',
     'Token 刷新',
     'Playwright',
     'Outbox',

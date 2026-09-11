@@ -15,6 +15,7 @@ const queryClient = new QueryClient({
 })
 const PatientPage = lazy(() => import('@/pages/patient/PatientPage').then((module) => ({ default: module.PatientPage })))
 const RegistrationPage = lazy(() => import('@/pages/patient/RegistrationPage').then((module) => ({ default: module.RegistrationPage })))
+const ClinicalPage = lazy(() => import('@/pages/clinical/ClinicalPage').then((module) => ({ default: module.ClinicalPage })))
 
 export default function App() {
   return (
@@ -28,7 +29,7 @@ export default function App() {
                 <Route index element={<DashboardPage />} />
                 <Route path="patient" element={<Suspense fallback={<Spin fullscreen tip="正在加载患者服务" />}><PatientPage /></Suspense>} />
                 <Route path="patient/registrations" element={<Suspense fallback={<Spin fullscreen tip="正在加载挂号服务" />}><RegistrationPage /></Suspense>} />
-                <Route path="clinical" element={<PlaceholderPage title="临床诊疗" />} />
+                <Route path="clinical" element={<Suspense fallback={<Spin fullscreen tip="正在加载临床服务" />}><ClinicalPage /></Suspense>} />
                 <Route path="resource" element={<PlaceholderPage title="资源保障" />} />
                 <Route path="operations" element={<PlaceholderPage title="运营管理" />} />
                 <Route path="pharma" element={<PlaceholderPage title="药事管理" />} />
