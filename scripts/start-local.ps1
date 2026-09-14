@@ -1,4 +1,4 @@
-param([switch]$SkipBuild)
+﻿param([switch]$SkipBuild)
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -47,7 +47,7 @@ try {
     foreach ($module in $modules) {
         $jar = Get-ChildItem -LiteralPath (Join-Path $projectRoot "$module\target") -Filter '*.jar' |
             Where-Object { $_.Name -notlike '*.original' } | Select-Object -First 1
-        if (-not $jar) { throw "未找到throw $module 的可执行 JAR" }
+        if (-not $jar) { throw "未找到 $module 的可执行 JAR" }
         $stdout = Join-Path $runDir "$module.log"
         $stderr = Join-Path $runDir "$module-error.log"
         $process = Start-Process java -ArgumentList @('-jar', $jar.FullName) -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
