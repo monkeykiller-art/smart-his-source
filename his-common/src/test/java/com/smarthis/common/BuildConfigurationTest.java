@@ -116,6 +116,17 @@ class BuildConfigurationTest {
     }
 
     @Test
+    void feignServiceClientsMustIncludeLoadBalancer() throws IOException {
+        Path root = findProjectRoot();
+
+        for (String module : List.of("his-patient", "his-clinical")) {
+            String modulePom = Files.readString(root.resolve(module).resolve("pom.xml"));
+            assertTrue(modulePom.contains("<artifactId>spring-cloud-starter-loadbalancer</artifactId>"),
+                    module + " must include Spring Cloud LoadBalancer for name-based Feign clients");
+        }
+    }
+
+    @Test
     void continuousIntegrationMustVerifyLinuxAndWindows() throws IOException {
         Path root = findProjectRoot();
         String workflow = Files.readString(root.resolve(".github/workflows/verify.yml"));
