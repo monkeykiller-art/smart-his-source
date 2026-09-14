@@ -1,15 +1,11 @@
 package com.smarthis.common.support;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
-@Component
-@ConditionalOnClass(RedisTemplate.class)
 @RequiredArgsConstructor
 public class BizNoGenerator {
 
