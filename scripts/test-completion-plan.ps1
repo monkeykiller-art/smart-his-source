@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $planPath = Join-Path $repositoryRoot 'PROJECT_COMPLETION_PLAN.md'
@@ -9,21 +9,19 @@ if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
 
 $content = Get-Content -LiteralPath $planPath -Raw -Encoding UTF8
 $requiredMarkers = @(
-    'smart-his-source',
+    '2026-09-14',
     '625',
-    '13 项',
-    'reactive-streams-1.0.4.jar',
-    'Testcontainers PostgreSQL',
-    '待安装 Docker 后完成真实 PostgreSQL 16 空库验收',
+    '18',
+    '23',
+    'PostgreSQL 16',
     'clean verify',
+    'MVP',
+    'ICD-10',
+    'RBAC',
     'OpenAPI',
     'OpenTelemetry',
-    'R0',
-    'R1',
-    'R2',
-    'R3',
-    'R4',
-    'R5'
+    '657.69 kB',
+    'docker compose stop'
 )
 
 foreach ($marker in $requiredMarkers) {
@@ -33,17 +31,9 @@ foreach ($marker in $requiredMarkers) {
 }
 
 $requiredModules = @(
-    'his-auth',
-    'his-patient',
-    'his-clinical',
-    'his-resource',
-    'his-operations',
-    'his-pharma',
-    'his-platform',
-    'his-cdss',
-    'his-emergency',
-    'his-collaboration',
-    'his-drg'
+    'his-auth', 'his-patient', 'his-clinical', 'his-resource',
+    'his-operations', 'his-pharma', 'his-platform', 'his-cdss',
+    'his-emergency', 'his-collaboration', 'his-drg'
 )
 
 foreach ($module in $requiredModules) {
@@ -52,9 +42,9 @@ foreach ($module in $requiredModules) {
     }
 }
 
-$stageHeadingCount = ([regex]::Matches($content, '^### .*R[0-5]', 'Multiline')).Count
-if ($stageHeadingCount -ne 6) {
-    throw "Expected six delivery stages, found $stageHeadingCount."
+$stageHeadingCount = ([regex]::Matches($content, '^### P[0-7]', 'Multiline')).Count
+if ($stageHeadingCount -ne 8) {
+    throw "Expected eight delivery stages, found $stageHeadingCount."
 }
 
 $acceptanceMarker = -join @(
@@ -65,29 +55,18 @@ $acceptanceMarker = -join @(
     [char]0xFF1A
 )
 $acceptanceHeadingCount = ([regex]::Matches($content, [regex]::Escape($acceptanceMarker))).Count
-if ($acceptanceHeadingCount -lt 6) {
-    throw 'Every delivery stage must define acceptance criteria.'
+if ($acceptanceHeadingCount -ne 8) {
+    throw "Every delivery stage must define acceptance criteria; found $acceptanceHeadingCount."
 }
 
-$requiredCurrentCapabilities = @(
-    '患者建档',
-    '门诊挂号',
-    '临床接诊',
-    'Token 刷新',
-    'Playwright',
-    'Outbox',
-    'SBOM'
-)
-
-foreach ($capability in $requiredCurrentCapabilities) {
-    if (-not $content.Contains($capability)) {
-        throw "Completion plan is missing current or planned capability: $capability"
-    }
+$milestoneCount = ([regex]::Matches($content, '\| M[0-7] ')).Count
+if ($milestoneCount -ne 8) {
+    throw "Expected eight delivery milestones, found $milestoneCount."
 }
 
-$milestoneCount = ([regex]::Matches($content, '\| M[1-6] ')).Count
-if ($milestoneCount -ne 6) {
-    throw "Expected six delivery milestones, found $milestoneCount."
+$sectionHeadingCount = ([regex]::Matches($content, '^## ', 'Multiline')).Count
+if ($sectionHeadingCount -ne 9) {
+    throw "Expected nine top-level plan sections, found $sectionHeadingCount."
 }
 
 Write-Host 'PROJECT_COMPLETION_PLAN.md structure validation passed.'
