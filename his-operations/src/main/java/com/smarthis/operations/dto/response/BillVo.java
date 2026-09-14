@@ -20,5 +20,6 @@ public class BillVo {
     private String billStatus;
     private String billType;
     private String remark;
+    private String voidReason;
     private LocalDateTime createdTime;
 }

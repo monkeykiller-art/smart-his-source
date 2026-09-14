@@ -28,6 +28,7 @@ public final class BillConverter {
         vo.setBillStatus(e.getBillStatus() != null ? e.getBillStatus().getValue() : null);
         vo.setBillType(e.getBillType() != null ? e.getBillType().getValue() : null);
         vo.setRemark(e.getRemark());
+        vo.setVoidReason(e.getVoidReason());
         vo.setCreatedTime(e.getCreatedTime());
         return vo;
     }

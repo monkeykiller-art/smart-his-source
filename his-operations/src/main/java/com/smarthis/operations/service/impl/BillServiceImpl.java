@@ -11,15 +11,19 @@ import com.smarthis.common.support.BizNoType;
 import com.smarthis.operations.converter.BillConverter;
 import com.smarthis.operations.dto.request.*;
 import com.smarthis.operations.dto.response.BillItemVo;
+import com.smarthis.operations.dto.response.BillTransactionVo;
 import com.smarthis.operations.dto.response.BillVo;
 import com.smarthis.operations.entity.Bill;
 import com.smarthis.operations.entity.BillItem;
+import com.smarthis.operations.entity.BillTransaction;
 import com.smarthis.operations.entity.FeeItem;
 import com.smarthis.operations.enums.BillStatus;
 import com.smarthis.operations.enums.BillType;
+import com.smarthis.operations.enums.PayMethod;
 import com.smarthis.operations.enums.VisitType;
 import com.smarthis.operations.mapper.BillItemMapper;
 import com.smarthis.operations.mapper.BillMapper;
+import com.smarthis.operations.mapper.BillTransactionMapper;
 import com.smarthis.operations.mapper.FeeItemMapper;
 import com.smarthis.operations.service.BillService;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +45,7 @@ public class BillServiceImpl implements BillService {
     private final BillItemMapper billItemMapper;
     private final FeeItemMapper feeItemMapper;
     private final BizNoGenerator bizNoGenerator;
+    private final BillTransactionMapper billTransactionMapper;
 
     @Override
     @Transactional
@@ -56,6 +61,90 @@ public class BillServiceImpl implements BillService {
     @Override
     public BillVo getById(Long id) {
         Bill bill = requireBill(id);
+        return BillConverter.toVo(bill);
+    }
+
+    @Override
+    public List<BillItemVo> listItems(Long id) {
+        requireBill(id);
+        return BillConverter.toItemVoList(listItemsForBill(id));
+    }
+
+    @Override
+    public List<BillTransactionVo> listTransactions(Long id) {
+        requireBill(id);
+        LambdaQueryWrapper<BillTransaction> query = new LambdaQueryWrapper<>();
+        query.eq(BillTransaction::getBillId, id).eq(BillTransaction::getDeleted, 0)
+                .orderByDesc(BillTransaction::getTransactionTime);
+        return billTransactionMapper.selectList(query).stream().map(this::toTransactionVo).toList();
+    }
+
+    @Override
+    @Transactional
+    public BillTransactionVo pay(Long id, BillPaymentRequest request) {
+        Bill bill = requireLockedBill(id);
+        BigDecimal amount = validateMoney(request.getAmount());
+        BillTransaction previous = findByIdempotencyKey(request.getIdempotencyKey());
+        if (previous != null) {
+            ensureSameTransaction(previous, id, "PAYMENT", amount, request.getPayMethod(),
+                    request.getReferenceNo(), null);
+            return toTransactionVo(previous);
+        }
+        if (bill.getBillStatus() == BillStatus.CANCELLED || bill.getBillStatus() == BillStatus.SETTLED) {
+            throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+        }
+        BigDecimal paid = zeroIfNull(bill.getPaidAmount());
+        BigDecimal due = zeroIfNull(bill.getPayableAmount()).subtract(paid);
+        if (amount.compareTo(due) > 0) throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+
+        BillTransaction transaction = newTransaction(id, "PAYMENT", amount,
+                PayMethod.valueOf(request.getPayMethod()), request.getReferenceNo(),
+                request.getIdempotencyKey(), null, BizNoType.PAYMENT);
+        billTransactionMapper.insert(transaction);
+        bill.setPaidAmount(paid.add(amount));
+        bill.setBillStatus(bill.getPaidAmount().compareTo(bill.getPayableAmount()) >= 0
+                ? BillStatus.SETTLED : BillStatus.PARTIAL);
+        billMapper.updateById(bill);
+        log.info("Bill payment recorded: billId={}, transactionNo={}, amount={}", id, transaction.getTransactionNo(), amount);
+        return toTransactionVo(transaction);
+    }
+
+    @Override
+    @Transactional
+    public BillTransactionVo refund(Long id, BillRefundRequest request) {
+        Bill bill = requireLockedBill(id);
+        BigDecimal amount = validateMoney(request.getAmount());
+        BillTransaction previous = findByIdempotencyKey(request.getIdempotencyKey());
+        if (previous != null) {
+            ensureSameTransaction(previous, id, "REFUND", amount, null, null, request.getReason().trim());
+            return toTransactionVo(previous);
+        }
+        if (bill.getBillStatus() == BillStatus.CANCELLED) throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+        BigDecimal paid = zeroIfNull(bill.getPaidAmount());
+        if (amount.compareTo(paid) > 0) throw new BusinessException(ErrorCode.REFUND_AMOUNT_EXCEEDED);
+
+        BillTransaction transaction = newTransaction(id, "REFUND", amount, null, null,
+                request.getIdempotencyKey(), request.getReason().trim(), BizNoType.REFUND);
+        billTransactionMapper.insert(transaction);
+        bill.setPaidAmount(paid.subtract(amount));
+        bill.setBillStatus(bill.getPaidAmount().signum() == 0
+                ? BillStatus.UNSETTLED : BillStatus.PARTIAL);
+        billMapper.updateById(bill);
+        log.info("Bill refund recorded: billId={}, transactionNo={}, amount={}", id, transaction.getTransactionNo(), amount);
+        return toTransactionVo(transaction);
+    }
+
+    @Override
+    @Transactional
+    public BillVo voidBill(Long id, BillVoidRequest request) {
+        Bill bill = requireLockedBill(id);
+        if (bill.getBillStatus() != BillStatus.UNSETTLED || zeroIfNull(bill.getPaidAmount()).signum() > 0) {
+            throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+        }
+        bill.setBillStatus(BillStatus.CANCELLED);
+        bill.setVoidReason(request.getReason().trim());
+        billMapper.updateById(bill);
+        log.info("Bill voided: billId={}", id);
         return BillConverter.toVo(bill);
     }
 
@@ -99,7 +188,7 @@ public class BillServiceImpl implements BillService {
         billItemMapper.insert(item);
         recalcBill(bill);
         log.info("Charge item added: billId={}, amount={}", billId, item.getAmount());
-        return BillConverter.toItemVoList(listItems(billId));
+        return BillConverter.toItemVoList(listItemsForBill(billId));
     }
 
     @Override
@@ -119,7 +208,7 @@ public class BillServiceImpl implements BillService {
         }
         recalcBill(bill);
         log.info("Batch charge: billId={}, count={}", request.getBillId(), request.getItems().size());
-        return BillConverter.toItemVoList(listItems(request.getBillId()));
+        return BillConverter.toItemVoList(listItemsForBill(request.getBillId()));
     }
 
     // --- helpers ---
@@ -147,6 +236,71 @@ public class BillServiceImpl implements BillService {
         Bill b = billMapper.selectById(id);
         if (b == null || b.getDeleted() != 0) throw new BusinessException(ErrorCode.BILL_NOT_FOUND);
         return b;
+    }
+
+    private Bill requireLockedBill(Long id) {
+        Bill bill = billMapper.selectByIdForUpdate(id);
+        if (bill == null || bill.getDeleted() != 0) throw new BusinessException(ErrorCode.BILL_NOT_FOUND);
+        return bill;
+    }
+
+    private BillTransaction findByIdempotencyKey(String key) {
+        LambdaQueryWrapper<BillTransaction> query = new LambdaQueryWrapper<>();
+        query.eq(BillTransaction::getIdempotencyKey, key.trim()).eq(BillTransaction::getDeleted, 0);
+        return billTransactionMapper.selectOne(query);
+    }
+
+    private void ensureSameTransaction(BillTransaction existing, Long billId, String type,
+            BigDecimal amount, String payMethod, String referenceNo, String reason) {
+        boolean same = existing.getBillId().equals(billId)
+                && existing.getTransactionType().equals(type)
+                && existing.getAmount().compareTo(amount) == 0
+                && java.util.Objects.equals(existing.getPayMethod() == null ? null : existing.getPayMethod().getValue(), payMethod)
+                && java.util.Objects.equals(existing.getReferenceNo(), referenceNo)
+                && java.util.Objects.equals(existing.getReason(), reason);
+        if (!same) throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+    }
+
+    private BigDecimal validateMoney(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0 || amount.scale() > 4 || amount.precision() > 18) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
+        return amount;
+    }
+
+    private BigDecimal zeroIfNull(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
+
+    private BillTransaction newTransaction(Long billId, String type, BigDecimal amount,
+            PayMethod method, String referenceNo, String idempotencyKey, String reason, BizNoType noType) {
+        BillTransaction transaction = new BillTransaction();
+        transaction.setBillId(billId);
+        transaction.setTransactionNo(bizNoGenerator.next(noType));
+        transaction.setTransactionType(type);
+        transaction.setAmount(amount);
+        transaction.setPayMethod(method);
+        transaction.setReferenceNo(referenceNo);
+        transaction.setIdempotencyKey(idempotencyKey.trim());
+        transaction.setReason(reason);
+        transaction.setTransactionTime(LocalDateTime.now());
+        transaction.setTransactionStatus("SUCCESS");
+        return transaction;
+    }
+
+    private BillTransactionVo toTransactionVo(BillTransaction transaction) {
+        BillTransactionVo vo = new BillTransactionVo();
+        vo.setId(transaction.getId());
+        vo.setBillId(transaction.getBillId());
+        vo.setTransactionNo(transaction.getTransactionNo());
+        vo.setTransactionType(transaction.getTransactionType());
+        vo.setAmount(transaction.getAmount());
+        vo.setPayMethod(transaction.getPayMethod() == null ? null : transaction.getPayMethod().getValue());
+        vo.setReferenceNo(transaction.getReferenceNo());
+        vo.setReason(transaction.getReason());
+        vo.setTransactionTime(transaction.getTransactionTime());
+        vo.setTransactionStatus(transaction.getTransactionStatus());
+        return vo;
     }
 
     private Bill requireActiveBill(Long id) {
@@ -198,7 +352,7 @@ public class BillServiceImpl implements BillService {
     }
 
     private void recalcBill(Bill bill) {
-        List<BillItem> items = listItems(bill.getId());
+        List<BillItem> items = listItemsForBill(bill.getId());
         BigDecimal total = items.stream()
                 .filter(i -> i.getIsRefunded() == null || i.getIsRefunded() == 0)
                 .map(BillItem::getAmount)
@@ -209,7 +363,7 @@ public class BillServiceImpl implements BillService {
         billMapper.updateById(bill);
     }
 
-    private List<BillItem> listItems(Long billId) {
+    private List<BillItem> listItemsForBill(Long billId) {
         LambdaQueryWrapper<BillItem> q = new LambdaQueryWrapper<>();
         q.eq(BillItem::getBillId, billId).eq(BillItem::getDeleted, 0)
          .orderByAsc(BillItem::getItemSeq);

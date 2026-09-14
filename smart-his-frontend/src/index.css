@@ -161,9 +161,18 @@ button, input { font: inherit; }
   color: #263746;
   background: #d8e0e8;
   font-family: "Microsoft YaHei", "SimSun", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 body { background: #d8e0e8; }
+body, .ant-typography, .ant-form, .ant-table, .ant-menu, .ant-input, .ant-select, .ant-btn {
+  font-family: "Microsoft YaHei", "SimSun", Arial, sans-serif;
+}
+.ant-form-item-label > label, .ant-descriptions-item-label, .ant-table-thead > tr > th { font-weight: 700; }
+.ant-input, .ant-select-selection-item, .ant-picker-input > input, .ant-table-cell { font-size: 12px; }
+.ant-table-cell, .ant-statistic-content, .ant-descriptions-item-content { font-variant-numeric: tabular-nums; }
+.ant-form-item-label > label, .ant-descriptions-item-label { color: #40596e; }
 .app-shell { background: #d8e0e8; }
 .app-sider { width: 224px !important; background: #244765 !important; border-right: 2px solid #8095a9; }
 .sider-brand { height: 58px; gap: 8px; padding: 0 11px; background: linear-gradient(#4779a1, #244765); border-bottom: 1px solid #91a6b8; }
@@ -249,6 +258,11 @@ body { background: #d8e0e8; }
 .login-card h2 { color: #294b67; font-size: 20px; }
 .login-card .ant-input-affix-wrapper, .login-card .ant-btn { min-height: 33px; height: 33px; }
 .login-footer { padding: 10px; color: #697d8e; }
+.operations-default { font-size: 16px; }
+.operations-detail-heading { margin: 12px 0 6px; padding: 4px 7px; color: #294b67; background: linear-gradient(#e8eef3, #d2dde6); border: 1px solid #afbfcc; font-size: 12px; }
+.operations-filters .ant-input, .operations-filters .ant-select-selector { min-height: 28px; }
+.operations-action-form { display: grid; grid-template-columns: 100px minmax(0, 1fr); align-items: center; gap: 10px; margin-top: 12px; }
+.operations-action-form label { color: #40596e; font-weight: 700; }
 
 @media (max-width: 720px) {
   .app-header { padding: 0 8px; }

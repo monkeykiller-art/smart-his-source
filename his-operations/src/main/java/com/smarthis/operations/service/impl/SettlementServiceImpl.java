@@ -193,8 +193,13 @@ public class SettlementServiceImpl implements SettlementService {
     public SettlementPreviewVo preview(Long admissionId) {
         LambdaQueryWrapper<Bill> bq = new LambdaQueryWrapper<>();
         bq.eq(Bill::getDeleted, 0).eq(Bill::getAdmissionId, admissionId)
-          .in(Bill::getBillStatus, BillStatus.UNSETTLED, BillStatus.PARTIAL);
+          .eq(Bill::getBillStatus, BillStatus.UNSETTLED);
         List<Bill> bills = billMapper.selectList(bq);
+        if (bills.isEmpty()) throw new BusinessException(ErrorCode.BILL_NOT_FOUND);
+        Long patientId = bills.get(0).getPatientId();
+        if (bills.stream().anyMatch(bill -> !Objects.equals(patientId, bill.getPatientId()))) {
+            throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+        }
         BigDecimal total = BigDecimal.ZERO;
         List<BillItem> allItems = new ArrayList<>();
         for (Bill bill : bills) {
@@ -213,11 +218,20 @@ public class SettlementServiceImpl implements SettlementService {
                 }
             }
         }
-        SettlementPreviewVo vo = SettlementConverter.toPreviewVo(null, admissionId);
+        LambdaQueryWrapper<DepositAccount> daq = new LambdaQueryWrapper<>();
+        daq.eq(DepositAccount::getPatientId, patientId)
+           .eq(DepositAccount::getAdmissionId, admissionId)
+           .eq(DepositAccount::getDeleted, 0);
+        DepositAccount depositAccount = depositAccountMapper.selectOne(daq);
+        BigDecimal depositBalance = depositAccount != null && depositAccount.getBalance() != null
+                ? depositAccount.getBalance() : BigDecimal.ZERO;
+        BigDecimal depositAmount = depositBalance.max(BigDecimal.ZERO).min(total.subtract(insurance).max(BigDecimal.ZERO));
+        SettlementPreviewVo vo = SettlementConverter.toPreviewVo(patientId, admissionId);
         vo.setTotalAmount(total);
         vo.setInsuranceAmount(insurance);
-        vo.setDepositAmount(BigDecimal.ZERO);
-        vo.setSelfPayAmount(total.subtract(insurance));
+        vo.setDepositAmount(depositAmount);
+        vo.setDepositBalance(depositBalance);
+        vo.setSelfPayAmount(total.subtract(insurance).subtract(depositAmount).max(BigDecimal.ZERO));
         return vo;
     }
 

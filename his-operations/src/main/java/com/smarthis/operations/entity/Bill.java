@@ -45,4 +45,6 @@ public class Bill extends BaseEntity {
     private BillType billType;
 
     private String remark;
+
+    private String voidReason;
 }
