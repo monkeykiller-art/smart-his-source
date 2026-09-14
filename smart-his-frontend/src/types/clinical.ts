@@ -9,6 +9,10 @@ export interface MedicalRecord {
   title?: string
   chiefComplaint?: string
   presentIllness?: string
+  pastHistory?: string
+  allergyHistory?: string
+  physicalExam?: string
+  auxiliaryExam?: string
   diagnosisDesc?: string
   treatmentPlan?: string
   recordContent?: string
@@ -16,6 +20,19 @@ export interface MedicalRecord {
   signTime?: string
   createdTime?: string
   updatedTime?: string
+}
+
+export interface MedicalRecordUpdateRequest {
+  title?: string
+  chiefComplaint?: string
+  presentIllness?: string
+  pastHistory?: string
+  allergyHistory?: string
+  physicalExam?: string
+  auxiliaryExam?: string
+  diagnosisDesc?: string
+  treatmentPlan?: string
+  recordContent?: string
 }
 
 export interface MedicalRecordCreateRequest {
@@ -27,6 +44,10 @@ export interface MedicalRecordCreateRequest {
   title?: string
   chiefComplaint?: string
   presentIllness?: string
+  pastHistory?: string
+  allergyHistory?: string
+  physicalExam?: string
+  auxiliaryExam?: string
   diagnosisDesc?: string
   treatmentPlan?: string
   recordContent?: string
@@ -58,6 +79,19 @@ export interface DiagnosisCreateRequest {
   isConfirmed: number
   diagnosisDesc?: string
   onsetDate?: string
+  icd10Id?: number
+}
+
+export interface Icd10Item {
+  id: number
+  icdCode: string
+  icdName: string
+  namePinyin?: string
+  chapter?: string
+  category?: string
+  isInfectious?: number
+  isChronic?: number
+  dictStatus?: number
 }
 
 export interface ClinicalOrderItem {

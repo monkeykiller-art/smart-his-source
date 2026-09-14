@@ -113,6 +113,13 @@ button, input { font: inherit; }
 .clinical-patient-detail { margin-top: 16px; }
 .clinical-workspace-card .ant-tabs-nav { margin-bottom: 12px; }
 .clinical-order-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+.clinical-secondary { color: #667085; font-size: 12px; }
+.clinical-allergy-alert { margin-top: 14px; }
+.clinical-encounter-actions { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e5e8ec; }
+.clinical-encounter-actions > span { display: block; width: 100%; }
+.clinical-action-hint { margin-top: 8px; color: #9a6700; font-size: 12px; line-height: 1.5; }
+.clinical-record-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+.clinical-record-form .ant-form-item { grid-column: span 2; }
 
 /* Ant Design density adjustments */
 .ant-card .ant-card-head { min-height: 43px; padding: 0 15px; }
@@ -144,7 +151,7 @@ button, input { font: inherit; }
   .app-main { margin-left: 0; }
   .app-header, .app-content { padding-right: 14px; padding-left: 14px; }
   .header-context .ant-typography-secondary, .header-user-copy { display: none; }
-  .quick-entry-grid, .metric-grid, .service-grid, .patient-form-grid, .registration-metrics, .clinical-order-form { grid-template-columns: 1fr; }
+  .quick-entry-grid, .metric-grid, .service-grid, .patient-form-grid, .registration-metrics, .clinical-order-form, .clinical-record-form { grid-template-columns: 1fr; }
   .form-span-2 { grid-column: span 1; }
   .patient-heading { align-items: flex-start; }
 }

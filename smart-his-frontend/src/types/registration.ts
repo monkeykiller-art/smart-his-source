@@ -90,3 +90,22 @@ export interface RegistrationCreateRequest {
   scheduleId: number
   regSource?: string
 }
+
+export interface Encounter {
+  id: number
+  encounterNo: string
+  patientId: number
+  patientName?: string
+  regId: number
+  regNo?: string
+  deptId: number
+  deptName?: string
+  doctorId: number
+  doctorName?: string
+  encounterType: string
+  encounterStatus: string
+  visitDate: string
+  startTime?: string
+  endTime?: string
+  chiefComplaint?: string
+}

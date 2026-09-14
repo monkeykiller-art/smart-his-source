@@ -1,6 +1,6 @@
 import { http } from './http'
 import type { ApiResponse } from '@/types/api'
-import type { ClinicalOrder, ClinicalOrderCreateRequest, Diagnosis, DiagnosisCreateRequest, MedicalRecord, MedicalRecordCreateRequest } from '@/types/clinical'
+import type { ClinicalOrder, ClinicalOrderCreateRequest, Diagnosis, DiagnosisCreateRequest, Icd10Item, MedicalRecord, MedicalRecordCreateRequest, MedicalRecordUpdateRequest } from '@/types/clinical'
 
 export const clinicalApi = {
   async listRecords(patientId: number) {
@@ -9,6 +9,14 @@ export const clinicalApi = {
   },
   async createRecord(request: MedicalRecordCreateRequest) {
     const response = await http.post<ApiResponse<MedicalRecord>>('/clinical/records', request)
+    return response.data.data
+  },
+  async listRecordsByEncounter(encounterId: number) {
+    const response = await http.get<ApiResponse<MedicalRecord[]>>(`/clinical/records/encounter/${encounterId}`)
+    return response.data.data
+  },
+  async updateRecord(id: number, request: MedicalRecordUpdateRequest) {
+    const response = await http.put<ApiResponse<MedicalRecord>>(`/clinical/records/${id}`, request)
     return response.data.data
   },
   async signRecord(id: number) {
@@ -24,6 +32,10 @@ export const clinicalApi = {
   },
   async deleteDiagnosis(id: number) {
     await http.delete<ApiResponse<void>>(`/clinical/diagnoses/${id}`)
+  },
+  async searchIcd10(keyword: string) {
+    const response = await http.get<ApiResponse<{ records: Icd10Item[] }>>('/clinical/icd10/search', { params: { page: 1, size: 20, keyword, dictStatus: 1 } })
+    return response.data.data.records
   },
   async listOrders(patientId: number) {
     const response = await http.get<ApiResponse<ClinicalOrder[]>>(`/clinical/orders/patient/${patientId}`)
