@@ -45,6 +45,7 @@ try {
     }
 
     New-Item -ItemType Directory -Force -Path $runDir | Out-Null
+    $serviceProcesses = @{}
     foreach ($module in $modules) {
         $jar = Get-ChildItem -LiteralPath (Join-Path $projectRoot "$module\target") -Filter '*.jar' |
             Where-Object { $_.Name -notlike '*.original' } | Select-Object -First 1
@@ -53,6 +54,28 @@ try {
         $stderr = Join-Path $runDir "$module-error.log"
         $process = Start-Process java -ArgumentList @('-jar', $jar.FullName) -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
         Set-Content -LiteralPath (Join-Path $runDir "$module.pid") -Value $process.Id
+        $serviceProcesses[$module] = $process.Id
+    }
+
+    $pending = @{}
+    foreach ($module in $serviceProcesses.Keys) { $pending[$module] = $serviceProcesses[$module] }
+    $startupDeadline = (Get-Date).AddMinutes(2)
+    while ($pending.Count -gt 0 -and (Get-Date) -lt $startupDeadline) {
+        foreach ($module in @($pending.Keys)) {
+            $processId = $pending[$module]
+            if (-not (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
+                throw "服务 $module 启动失败，请检查 $runDir\$module.log"
+            }
+            $logPath = Join-Path $runDir "$module.log"
+            if (Test-Path -LiteralPath $logPath) {
+                $started = Select-String -LiteralPath $logPath -Pattern 'Started .*Application' -Quiet
+                if ($started) { $pending.Remove($module) }
+            }
+        }
+        if ($pending.Count -gt 0) { Start-Sleep -Seconds 2 }
+    }
+    if ($pending.Count -gt 0) {
+        throw "服务启动超时：$($pending.Keys -join ', ')。请检查 $runDir"
     }
 } finally {
     Pop-Location

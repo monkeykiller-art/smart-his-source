@@ -28,6 +28,9 @@ $requiredFragments = @(
     'docker compose up -d --wait',
     "throw 'Docker Compose",
     '-WindowStyle Hidden',
+    "-Pattern 'Started .*Application' -Quiet",
+    'Get-Process -Id $processId',
+    '.AddMinutes(2)',
     'Join-Path $runDir "$module.pid"'
 )
 foreach ($fragment in $requiredFragments) {
