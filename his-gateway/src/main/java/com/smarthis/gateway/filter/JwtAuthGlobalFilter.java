@@ -91,14 +91,19 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
 
                     String traceId = exchange.getRequest().getHeaders().getFirst("X-Trace-Id");
 
-                    ServerHttpRequest request = stripUserHeaders(exchange.getRequest()).mutate()
+                    ServerHttpRequest.Builder requestBuilder = stripUserHeaders(exchange.getRequest()).mutate()
                             .header("X-User-Id", claims.getSubject())
                             .header("X-Username", claims.get("un", String.class))
                             .header("X-Real-Name", claims.get("rn", String.class))
-                            .header("X-Dept-Id", String.valueOf(claims.get("dept")))
                             .header("X-Roles", claims.get("roles", String.class))
-                            .header("X-Trace-Id", traceId != null ? traceId : "")
-                            .build();
+                            .header("X-Trace-Id", traceId != null ? traceId : "");
+
+                    Object deptId = claims.get("dept");
+                    if (deptId != null) {
+                        requestBuilder.header("X-Dept-Id", deptId.toString());
+                    }
+
+                    ServerHttpRequest request = requestBuilder.build();
 
                     return chain.filter(exchange.mutate().request(request).build());
                 });

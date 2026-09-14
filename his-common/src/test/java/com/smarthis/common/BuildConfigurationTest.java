@@ -173,6 +173,17 @@ class BuildConfigurationTest {
                 "Local verification must use non-interactive Maven output");
     }
 
+    @Test
+    void windowsLocalStartupMustUseBoundedDatabaseConnectionPools() throws IOException {
+        Path root = findProjectRoot();
+        String script = Files.readString(root.resolve("scripts/start-local.ps1"));
+
+        assertTrue(script.contains("SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE', '4'"),
+                "Local services must use a bounded maximum database pool size");
+        assertTrue(script.contains("SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE', '0'"),
+                "Local services must not reserve idle database connections at startup");
+    }
+
     private Path findProjectRoot() {
         Path current = Paths.get("").toAbsolutePath();
         while (current != null) {

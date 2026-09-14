@@ -2,8 +2,12 @@ package com.smarthis.patient.dto.response;
 
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
-public class DoctorVo {
+public class DoctorVo implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private Long id;
 

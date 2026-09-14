@@ -25,4 +25,16 @@ class HisRedisAutoConfigurationTest {
             assertThat(context).hasSingleBean(org.springframework.data.redis.core.RedisTemplate.class);
         });
     }
+
+    @Test
+    void usesDedicatedTemplateWhenRedisTemplateNameHasAnotherType() {
+        contextRunner
+                .withBean("redisTemplate", Object.class, Object::new)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(BizNoGenerator.class);
+                    assertThat(context).hasBean("bizNoRedisTemplate");
+                    assertThat(context).hasSingleBean(org.springframework.data.redis.core.RedisTemplate.class);
+                });
+    }
 }

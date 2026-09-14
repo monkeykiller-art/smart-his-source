@@ -24,6 +24,48 @@ spring:
             allowCredentials: true
             maxAge: 3600
       routes:
+        - id: his-auth-health
+          uri: lb://his-auth
+          order: -1
+          predicates:
+            - Path=/api/auth/health
+          filters:
+            - SetPath=/health
+        - id: his-patient-health
+          uri: lb://his-patient
+          order: -1
+          predicates:
+            - Path=/api/patient/health
+          filters:
+            - SetPath=/health
+        - id: his-clinical-health
+          uri: lb://his-clinical
+          order: -1
+          predicates:
+            - Path=/api/clinical/health
+          filters:
+            - SetPath=/health
+        - id: his-resource-health
+          uri: lb://his-resource
+          order: -1
+          predicates:
+            - Path=/api/resource/health
+          filters:
+            - SetPath=/health
+        - id: his-operations-health
+          uri: lb://his-operations
+          order: -1
+          predicates:
+            - Path=/api/operations/health
+          filters:
+            - SetPath=/health
+        - id: his-collaboration-health
+          uri: lb://his-collaboration
+          order: -1
+          predicates:
+            - Path=/api/collaboration/health
+          filters:
+            - SetPath=/health
         - id: his-auth
           uri: lb://his-auth
           predicates:

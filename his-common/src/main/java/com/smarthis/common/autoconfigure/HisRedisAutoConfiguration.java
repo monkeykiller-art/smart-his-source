@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
@@ -21,9 +22,9 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @EnableCaching
 public class HisRedisAutoConfiguration {
 
-    @Bean
-    @ConditionalOnMissingBean(name = "redisTemplate")
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
+    @Bean("bizNoRedisTemplate")
+    @ConditionalOnMissingBean(name = "bizNoRedisTemplate")
+    public RedisTemplate<String, Object> bizNoRedisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(factory);
         template.setKeySerializer(new StringRedisSerializer());
@@ -42,7 +43,8 @@ public class HisRedisAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public BizNoGenerator bizNoGenerator(RedisTemplate<String, Object> redisTemplate) {
-        return new BizNoGenerator(redisTemplate);
+    public BizNoGenerator bizNoGenerator(
+            @Qualifier("bizNoRedisTemplate") RedisTemplate<String, Object> bizNoRedisTemplate) {
+        return new BizNoGenerator(bizNoRedisTemplate);
     }
 }

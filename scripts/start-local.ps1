@@ -31,6 +31,12 @@ if (-not [Environment]::GetEnvironmentVariable('DB_USER', 'Process')) {
 if (-not [Environment]::GetEnvironmentVariable('DB_PASSWORD', 'Process')) {
     [Environment]::SetEnvironmentVariable('DB_PASSWORD', [Environment]::GetEnvironmentVariable('POSTGRES_PASSWORD', 'Process'), 'Process')
 }
+if (-not [Environment]::GetEnvironmentVariable('SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE', 'Process')) {
+    [Environment]::SetEnvironmentVariable('SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE', '4', 'Process')
+}
+if (-not [Environment]::GetEnvironmentVariable('SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE', 'Process')) {
+    [Environment]::SetEnvironmentVariable('SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE', '0', 'Process')
+}
 
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop 未运行。请启动 Docker Desktop 后重试。' }
