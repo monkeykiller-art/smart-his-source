@@ -155,3 +155,103 @@ button, input { font: inherit; }
   .form-span-2 { grid-column: span 1; }
   .patient-heading { align-items: flex-start; }
 }
+
+/* Traditional hospital HIS workstation skin: compact, framed and information-dense. */
+:root {
+  color: #263746;
+  background: #d8e0e8;
+  font-family: "Microsoft YaHei", "SimSun", Arial, sans-serif;
+}
+
+body { background: #d8e0e8; }
+.app-shell { background: #d8e0e8; }
+.app-sider { width: 224px !important; background: #244765 !important; border-right: 2px solid #8095a9; }
+.sider-brand { height: 58px; gap: 8px; padding: 0 11px; background: linear-gradient(#4779a1, #244765); border-bottom: 1px solid #91a6b8; }
+.sider-brand .brand-mark { width: 29px; height: 29px; background: #dce6f0; color: #244765; border: 1px solid #f4f7fa; }
+.sider-brand strong { font-size: 14px; }
+.sider-brand small { color: #d6e0e8; font-size: 10px; }
+.sider-section-title { padding: 9px 12px 6px; color: #d5e0e9; background: #183751; border-bottom: 1px solid #6e879b; font-size: 12px; font-weight: 700; letter-spacing: 0; }
+.app-sider .ant-menu { padding-top: 3px; background: #244765; }
+.app-sider .ant-menu-item-group-title { padding: 10px 12px 3px !important; color: #b8cad8 !important; font-size: 11px; font-weight: 700; }
+.app-sider .ant-menu-item-group-list { margin: 0 !important; }
+.app-sider .ant-menu-item { height: 31px; margin: 1px 5px; padding-inline: 10px !important; line-height: 31px; border: 1px solid transparent; border-radius: 0; font-size: 12px; }
+.app-sider .ant-menu-item .ant-menu-title-content { margin-inline-start: 7px; }
+.app-sider .ant-menu-item-selected { background: linear-gradient(#4b83b0, #356d9b) !important; border-color: #8eafca; box-shadow: inset 1px 1px rgba(255,255,255,.16); }
+.app-sider .ant-menu-item:hover { background: #315c7e !important; border-color: #6687a1; }
+.sider-footer { display: grid; gap: 3px; padding: 9px 12px; color: #c1d0dc; background: #1d3d58; border-top: 1px solid #6e879b; font-size: 10px; }
+.sider-footer strong { color: #fff; font-size: 11px; }
+.sider-footer small { color: #9eb3c4; }
+.app-main { margin-left: 224px; background: #d8e0e8; }
+.app-header { position: sticky; height: 49px; padding: 0 12px; color: #fff; background: linear-gradient(#4a7ca4, #28557c); border-bottom: 2px solid #173c5b; box-shadow: inset 0 1px rgba(255,255,255,.2); }
+.header-context { align-items: center; gap: 10px; }
+.header-title { color: #fff; font-size: 15px; font-weight: 700; letter-spacing: .03em; }
+.header-context .ant-typography-secondary { color: #d8e4ed !important; font-size: 10px; }
+.header-user { gap: 7px; }
+.header-user-copy > div { color: #fff; font-size: 11px; font-weight: 600; }
+.header-user-copy .ant-typography { color: #d3e0e9 !important; font-size: 10px; }
+.header-user .ant-avatar { color: #294f70; background: #e1e9f0; border: 1px solid #f4f6f8; }
+.header-user > .ant-btn { height: 25px; padding: 0 8px; color: #fff; border: 1px solid transparent; border-radius: 1px; font-size: 11px; }
+.header-user > .ant-btn:hover { color: #fff !important; background: #416f93 !important; border-color: #9bb3c6 !important; }
+.app-content { padding: 11px 12px 24px; }
+.page-heading { margin-bottom: 10px; padding: 0 0 8px; border-bottom: 3px double #9aabba; }
+.page-heading h1 { color: #294b67; font-size: 18px; font-weight: 700; }
+.page-heading p { color: #687c8d; font-size: 11px; }
+.content-section-title { margin: 13px 0 7px; padding: 4px 7px; color: #294b67; background: linear-gradient(#e8eef3, #d2dde6); border: 1px solid #afbfcc; font-size: 12px; }
+.quick-entry-grid { gap: 6px; }
+.quick-entry { grid-template-columns: 27px 1fr 10px; gap: 7px; min-height: 53px; padding: 6px 8px; color: #294b67; background: linear-gradient(#fff, #f1f4f7); border: 1px solid #a9b8c5; border-radius: 1px; box-shadow: inset 0 1px #fff, 1px 1px rgba(52,73,91,.12); }
+.quick-entry:hover { background: #f5f9fc; border-color: #547b9b; }
+.quick-entry-icon { width: 25px; height: 25px; color: #315f83; background: #e1eaf1; border-color: #b4c4d1; font-size: 14px; }
+.quick-entry strong { font-size: 12px; }
+.quick-entry small { margin-top: 2px; color: #6a7e8e; font-size: 10px; }
+.quick-entry-arrow { font-size: 17px; }
+.metric-grid { gap: 6px; margin-bottom: 8px; }
+.metric-card, .service-card, .patient-table-card, .clinical-patient-card, .clinical-workspace-card, .placeholder-card,
+.registration-metrics .ant-card { border: 1px solid #9dadba; border-radius: 1px; box-shadow: inset 0 1px #fff, 1px 1px rgba(54,72,87,.12); }
+.ant-card .ant-card-head { min-height: 31px; padding: 0 9px; background: linear-gradient(#edf3f7, #d5e0e9); border-bottom: 1px solid #a7b7c4; }
+.ant-card .ant-card-head-title { padding: 6px 0; color: #294b67; font-size: 12px; font-weight: 700; }
+.ant-card .ant-card-body { padding: 9px; }
+.metric-label { color: #607486; font-size: 10px; }
+.metric-value { margin: 2px 0; color: #294b67; font-size: 20px; }
+.metric-time { margin: 5px 0 3px; color: #294b67; font-size: 16px; }
+.metric-note { min-height: 14px; color: #81909c; font-size: 10px; }
+.service-grid { border-color: #b3c0cb; }
+.service-row { min-height: 39px; padding: 5px 7px; border-color: #b3c0cb; }
+.service-row strong { color: #354f65; font-size: 11px; }
+.service-row small { color: #7c8c98; font-size: 9px; }
+.ant-table-wrapper .ant-table { border: 1px solid #acbac6; border-radius: 0; }
+.ant-table-wrapper .ant-table-thead > tr > th { padding: 6px 8px; color: #294b67; background: linear-gradient(#edf3f7, #d5e0e9); border-color: #b0bdc8; font-size: 11px; }
+.ant-table-wrapper .ant-table-tbody > tr > td { padding: 5px 8px; color: #354a5c; border-color: #d0d8df; font-size: 11px; }
+.ant-table-wrapper .ant-table-tbody > tr:nth-child(even) > td { background: #f7f9fb; }
+.ant-table-wrapper .ant-table-tbody > tr:hover > td { background: #e8f1f8 !important; }
+.ant-btn { border-radius: 1px; font-size: 12px; }
+.ant-btn-default { color: #344e63; background: linear-gradient(#fff, #e3e9ee); border-color: #a5b4c0; box-shadow: inset 0 1px #fff; }
+.ant-btn-primary { background: linear-gradient(#4c7fa6, #285b83); border-color: #214c70; box-shadow: inset 0 1px rgba(255,255,255,.25); }
+.ant-input, .ant-input-affix-wrapper, .ant-select-selector, .ant-picker, .ant-input-number { border-radius: 1px !important; border-color: #a8b7c3 !important; box-shadow: inset 0 1px 2px rgba(44,65,83,.08); }
+.ant-form-item { margin-bottom: 11px; }
+.table-toolbar { gap: 5px; margin-bottom: 8px; }
+.registration-metrics { gap: 6px; margin-bottom: 8px; }
+.registration-filters { gap: 5px; }
+.registration-filters .ant-select { min-width: 125px; }
+.registration-list { margin-top: 8px; }
+.clinical-layout { grid-template-columns: 245px minmax(0, 1fr); gap: 8px; }
+.clinical-patient-card { top: 96px; }
+.clinical-patient-detail { margin-top: 9px; }
+.clinical-encounter-actions { margin-top: 8px; padding-top: 8px; }
+.login-shell { background: #cbd6e0; }
+.login-header { height: 50px; padding: 0 22px; background: linear-gradient(#4a7ca4, #28557c); border-bottom: 2px solid #173c5b; }
+.login-brand-mark { background: #dce6f0; color: #244765; border-radius: 0; }
+.login-main { width: min(860px, calc(100% - 32px)); border: 1px solid #8fa4b6; box-shadow: 2px 2px 0 rgba(35,58,77,.16); }
+.login-intro { padding: 35px 38px; background: linear-gradient(#edf2f6, #dbe4eb); }
+.login-intro h1 { color: #294b67; font-size: 24px; }
+.login-intro > p { font-size: 13px; line-height: 1.6; }
+.login-panel { padding: 30px 32px; }
+.login-card-heading { margin-bottom: 17px; }
+.login-card h2 { color: #294b67; font-size: 20px; }
+.login-card .ant-input-affix-wrapper, .login-card .ant-btn { min-height: 33px; height: 33px; }
+.login-footer { padding: 10px; color: #697d8e; }
+
+@media (max-width: 720px) {
+  .app-header { padding: 0 8px; }
+  .header-user-copy { display: none; }
+  .clinical-layout { grid-template-columns: 1fr; }
+}

@@ -21,21 +21,21 @@ export default function App() {
   return (
     <ConfigProvider locale={zhCN} theme={{
       token: {
-        colorPrimary: '#1769aa',
-        colorInfo: '#1769aa',
-        colorSuccess: '#2f7d4a',
-        colorWarning: '#b26a00',
-        colorError: '#b42318',
-        colorBgLayout: '#eef1f5',
-        colorBorder: '#d9dee5',
-        borderRadius: 4,
-        controlHeight: 34,
-        fontSize: 14,
+        colorPrimary: '#285b88',
+        colorInfo: '#285b88',
+        colorSuccess: '#347145',
+        colorWarning: '#a56b16',
+        colorError: '#a12b2b',
+        colorBgLayout: '#d8e0e8',
+        colorBorder: '#aebdcb',
+        borderRadius: 1,
+        controlHeight: 30,
+        fontSize: 13,
       },
       components: {
-        Card: { headerBg: '#f7f8fa' },
-        Menu: { darkItemBg: '#17324d', darkItemSelectedBg: '#1769aa', darkItemHoverBg: '#244866' },
-        Table: { headerBg: '#f3f5f7', headerColor: '#344054', rowHoverBg: '#f5f9fd' },
+        Card: { headerBg: '#dce6f0' },
+        Menu: { darkItemBg: '#244765', darkItemSelectedBg: '#3a76a7', darkItemHoverBg: '#315c7e' },
+        Table: { headerBg: '#dce6f0', headerColor: '#263e54', rowHoverBg: '#edf4fb' },
       },
     }}>
       <QueryClientProvider client={queryClient}>
