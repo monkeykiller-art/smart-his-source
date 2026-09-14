@@ -26,6 +26,7 @@ $requiredFragments = @(
     "Join-Path `$projectRoot '.env'",
     'docker info',
     'docker compose up -d --wait',
+    "throw 'Docker Compose",
     '-WindowStyle Hidden',
     'Join-Path $runDir "$module.pid"'
 )

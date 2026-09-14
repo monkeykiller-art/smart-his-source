@@ -38,6 +38,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop 未运行。请启动 Docker De
 Push-Location $projectRoot
 try {
     docker compose up -d --wait
+    if ($LASTEXITCODE -ne 0) { throw 'Docker Compose 基础环境启动失败。' }
     if (-not $SkipBuild) {
         mvn package -DskipTests
         if ($LASTEXITCODE -ne 0) { throw 'Maven 构建失败。' }
