@@ -16,7 +16,12 @@ http.interceptors.response.use((response) => response, async (error: AxiosError)
   const request = error.config as RetriableRequest | undefined
   const session = tokenStorage.read()
   const isAuthRequest = request?.url?.startsWith('/auth/')
-  if (error.response?.status !== 401 || !request || request._retry || !session?.refreshToken || isAuthRequest) return Promise.reject(error)
+  if (error.response?.status !== 401 || !request || isAuthRequest) return Promise.reject(error)
+  if (request._retry || !session?.refreshToken) {
+    tokenStorage.clear()
+    if (window.location.pathname !== '/login') window.location.assign('/login')
+    return Promise.reject(error)
+  }
   request._retry = true
   refreshRequest ??= axios.post<ApiResponse<LoginResponse>>('/api/auth/refresh', { refreshToken: session.refreshToken })
     .then(({ data }) => { tokenStorage.updateAccessToken(data.data.accessToken); return data.data.accessToken })
