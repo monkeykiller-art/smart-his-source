@@ -179,7 +179,7 @@ public class BillServiceImpl implements BillService {
     public List<BillItemVo> addChargeItem(Long billId, BillChargeItemRequest request) {
         Bill bill = requireActiveBill(billId);
         FeeItem feeItem = requireFeeItem(request.getFeeItemId());
-        int seq = nextSeq(billId);
+        int seq = nextSeq(billId) + 1;
         BillItem item = buildItem(billId, seq, feeItem,
                 request.getItemCode(), request.getItemName(), request.getItemClass(),
                 request.getSpec(), request.getUnit(), request.getUnitPrice(),
@@ -304,7 +304,7 @@ public class BillServiceImpl implements BillService {
     }
 
     private Bill requireActiveBill(Long id) {
-        Bill b = requireBill(id);
+        Bill b = requireLockedBill(id);
         if (b.getBillStatus() == BillStatus.SETTLED || b.getBillStatus() == BillStatus.CANCELLED) {
             throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
         }
@@ -338,8 +338,15 @@ public class BillServiceImpl implements BillService {
         item.setSpec(spec != null ? spec : fi.getSpec());
         item.setUnit(unit != null ? unit : fi.getUnit());
         item.setUnitPrice(price != null ? price : fi.getUnitPrice());
+        if (item.getUnitPrice() == null || item.getUnitPrice().signum() < 0
+                || qty == null || qty.signum() <= 0) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
         item.setQuantity(qty);
         item.setAmount(item.getUnitPrice().multiply(item.getQuantity()));
+        if (item.getAmount().scale() > 4 || item.getAmount().precision() > 18) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
         item.setChargeDeptId(chargeDeptId);
         item.setExecuteDeptId(executeDeptId);
         item.setOrderId(orderId);

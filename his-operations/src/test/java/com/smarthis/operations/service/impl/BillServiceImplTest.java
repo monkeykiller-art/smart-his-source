@@ -14,6 +14,8 @@ import com.smarthis.operations.dto.request.BillRefundRequest;
 import com.smarthis.operations.dto.request.BillVoidRequest;
 import com.smarthis.operations.dto.response.BillTransactionVo;
 import com.smarthis.operations.entity.BillTransaction;
+import com.smarthis.operations.entity.FeeItem;
+import com.smarthis.operations.dto.request.BillChargeItemRequest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -199,5 +201,69 @@ class BillServiceImplTest {
         bill.setPaidAmount(new BigDecimal(paid));
         bill.setBillStatus(status);
         return bill;
+    }
+
+    @Test
+    void addsChargeUnderBillLockWithNextSequenceAndExactBalance() {
+        Bill bill = bill(42L, "10.00", "5.00", BillStatus.PARTIAL);
+        when(billMapper.selectByIdForUpdate(42L)).thenReturn(bill);
+        FeeItem fee = feeItem();
+        when(feeItemMapper.selectById(7L)).thenReturn(fee);
+        BillItem last = new BillItem();
+        last.setItemSeq(3);
+        when(billItemMapper.selectOne(any())).thenReturn(last);
+        BillItem previous = new BillItem();
+        previous.setAmount(new BigDecimal("10.00"));
+        when(billItemMapper.insert(any(BillItem.class))).thenAnswer(invocation -> {
+            BillItem added = invocation.getArgument(0);
+            assertEquals(4, added.getItemSeq());
+            assertEquals(new BigDecimal("0.30"), added.getAmount());
+            when(billItemMapper.selectList(any())).thenReturn(List.of(previous, added));
+            return 1;
+        });
+        service.addChargeItem(42L, chargeRequest(new BigDecimal("3")));
+        assertEquals(new BigDecimal("10.30"), bill.getPayableAmount());
+        assertEquals(new BigDecimal("5.00"), bill.getPaidAmount());
+        verify(billMapper).selectByIdForUpdate(42L);
+        verify(billMapper, never()).selectById(any());
+    }
+
+    @Test
+    void refusesChargesOnSettledBillBeforeWritingItems() {
+        when(billMapper.selectByIdForUpdate(42L))
+                .thenReturn(bill(42L, "10.00", "10.00", BillStatus.SETTLED));
+        assertThrows(BusinessException.class,
+                () -> service.addChargeItem(42L, chargeRequest(BigDecimal.ONE)));
+        verifyNoInteractions(feeItemMapper, billItemMapper);
+    }
+
+    @Test
+    void rejectsNegativeChargeQuantityAndPriceWithoutWriting() {
+        when(billMapper.selectByIdForUpdate(42L))
+                .thenReturn(bill(42L, "10.00", "0.00", BillStatus.UNSETTLED));
+        when(feeItemMapper.selectById(7L)).thenReturn(feeItem());
+        assertThrows(BusinessException.class,
+                () -> service.addChargeItem(42L, chargeRequest(new BigDecimal("-1"))));
+        BillChargeItemRequest request = chargeRequest(BigDecimal.ONE);
+        request.setUnitPrice(new BigDecimal("-0.10"));
+        assertThrows(BusinessException.class, () -> service.addChargeItem(42L, request));
+        verify(billItemMapper, never()).insert(any(BillItem.class));
+        verify(billMapper, never()).updateById(any(Bill.class));
+    }
+
+    private FeeItem feeItem() {
+        FeeItem fee = new FeeItem();
+        fee.setId(7L);
+        fee.setDeleted(0);
+        fee.setUnitPrice(new BigDecimal("0.10"));
+        return fee;
+    }
+
+    private BillChargeItemRequest chargeRequest(BigDecimal quantity) {
+        BillChargeItemRequest request = new BillChargeItemRequest();
+        request.setBillId(42L);
+        request.setFeeItemId(7L);
+        request.setQuantity(quantity);
+        return request;
     }
 }
