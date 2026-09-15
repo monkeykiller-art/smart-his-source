@@ -56,8 +56,10 @@ class RegistrationServiceImplTest {
     void rejectsDuplicateActiveRegistrationBeforeAcquiringQuota() {
         Patient patient = new Patient();
         patient.setId(10L);
+        patient.setDeleted(0);
         Schedule schedule = new Schedule();
         schedule.setId(20L);
+        schedule.setDeleted(0);
         schedule.setScheduleStatus("ACTIVE");
         schedule.setDeptId(30L);
         schedule.setDoctorId(40L);
@@ -79,6 +81,7 @@ class RegistrationServiceImplTest {
     void requiresRefundForPaidRegistration() {
         Registration registration = new Registration();
         registration.setId(11L);
+        registration.setDeleted(0);
         registration.setPayStatus("PAID");
         registration.setRegStatus("ACTIVE");
         when(registrationMapper.selectById(11L)).thenReturn(registration);
@@ -93,6 +96,7 @@ class RegistrationServiceImplTest {
     void refusesRefundForUnpaidRegistration() {
         Registration registration = new Registration();
         registration.setId(12L);
+        registration.setDeleted(0);
         registration.setPayStatus("UNPAID");
         registration.setRegStatus("ACTIVE");
         when(registrationMapper.selectById(12L)).thenReturn(registration);
