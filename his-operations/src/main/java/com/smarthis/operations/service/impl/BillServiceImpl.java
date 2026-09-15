@@ -49,6 +49,119 @@ public class BillServiceImpl implements BillService {
 
     @Override
     @Transactional
+    public BillVo voidOrderSource(BillOrderCancelRequest request) {
+        billMapper.lockSource("ORDER:" + request.getOrderId());
+        LambdaQueryWrapper<Bill> query = new LambdaQueryWrapper<>();
+        query.eq(Bill::getSourceType, "ORDER").eq(Bill::getSourceId, request.getOrderId());
+        Bill bill = billMapper.selectOne(query);
+        if (bill == null && request.getBillId() != null) bill = requireLockedBill(request.getBillId());
+        if (bill != null) {
+            if (!java.util.Objects.equals(bill.getPatientId(), request.getPatientId())
+                    || !java.util.Objects.equals(bill.getEncounterId(), request.getEncounterId())
+                    || (bill.getSourceType() != null && (!"ORDER".equals(bill.getSourceType())
+                        || !java.util.Objects.equals(bill.getSourceId(), request.getOrderId())))) {
+                throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+            }
+            BillVoidRequest reason = new BillVoidRequest();
+            reason.setReason(request.getReason());
+            BillVo result = voidBill(bill.getId(), reason);
+            if (bill.getSourceType() == null) {
+                bill.setSourceType("ORDER");
+                bill.setSourceId(request.getOrderId());
+                bill.setBillStatus(BillStatus.CANCELLED);
+                bill.setVoidReason(result.getVoidReason());
+                billMapper.updateById(bill);
+            }
+            return result;
+        }
+        // Persist the cancellation intent before any delayed billing request can arrive.
+        bill = newBill(bizNoGenerator.next(BizNoType.BILL), request.getPatientId(), null,
+                request.getEncounterId(), "OUTPATIENT", request.getDeptId(), "NORMAL", "医嘱取消，未收款");
+        bill.setSourceType("ORDER");
+        bill.setSourceId(request.getOrderId());
+        bill.setBillStatus(BillStatus.CANCELLED);
+        bill.setVoidReason(request.getReason());
+        billMapper.insert(bill);
+        return BillConverter.toVo(bill);
+    }
+
+    @Override
+    @Transactional
+    public BillVo createFromOrder(BillOrderRequest request) {
+        if (request.getOrderId() == null || request.getOrderId() <= 0
+                || request.getPatientId() == null || request.getEncounterId() == null
+                || request.getDeptId() == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        java.util.Set<Long> itemIds = new java.util.HashSet<>();
+        for (BillOrderRequest.Item line : request.getItems()) {
+            if (line == null || line.getOrderItemId() == null || !itemIds.add(line.getOrderItemId())
+                    || !StringUtils.hasText(line.getItemName()) || line.getUnitPrice() == null
+                    || line.getUnitPrice().signum() < 0 || line.getQuantity() == null
+                    || line.getQuantity().signum() <= 0) {
+                throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+            }
+            BigDecimal amount = line.getUnitPrice().multiply(line.getQuantity());
+            if (amount.scale() > 4 || amount.precision() - amount.scale() > 14) {
+                throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+            }
+            total = total.add(amount);
+        }
+        if (total.precision() - total.scale() > 14) throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        billMapper.lockSource("ORDER:" + request.getOrderId());
+        LambdaQueryWrapper<Bill> query = new LambdaQueryWrapper<>();
+        query.eq(Bill::getSourceType, "ORDER").eq(Bill::getSourceId, request.getOrderId());
+        Bill previous = billMapper.selectOne(query);
+        if (previous != null) {
+            if (previous.getBillStatus() == BillStatus.CANCELLED) throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+            List<BillItem> stored = listItemsForBill(previous.getId());
+            boolean same = java.util.Objects.equals(previous.getPatientId(), request.getPatientId())
+                    && java.util.Objects.equals(previous.getEncounterId(), request.getEncounterId())
+                    && previous.getTotalAmount().compareTo(total) == 0 && stored.size() == request.getItems().size();
+            for (BillOrderRequest.Item line : request.getItems()) {
+                same &= stored.stream().anyMatch(item -> java.util.Objects.equals(item.getOrderItemId(), line.getOrderItemId())
+                        && java.util.Objects.equals(item.getItemName(), line.getItemName())
+                        && item.getUnitPrice().compareTo(line.getUnitPrice()) == 0
+                        && item.getQuantity().compareTo(line.getQuantity()) == 0);
+            }
+            if (!same) throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+            return BillConverter.toVo(previous);
+        }
+        Bill bill = newBill(bizNoGenerator.next(BizNoType.BILL), request.getPatientId(), null,
+                request.getEncounterId(), "OUTPATIENT", request.getDeptId(), "NORMAL", "门诊医嘱费用");
+        bill.setSourceType("ORDER");
+        bill.setSourceId(request.getOrderId());
+        bill.setTotalAmount(total);
+        bill.setPayableAmount(total);
+        if (total.signum() == 0) bill.setBillStatus(BillStatus.SETTLED);
+        billMapper.insert(bill);
+        int seq = 0;
+        for (BillOrderRequest.Item line : request.getItems()) {
+            BillItem item = new BillItem();
+            item.setBillId(bill.getId());
+            item.setItemSeq(++seq);
+            item.setOrderId(request.getOrderId());
+            item.setOrderItemId(line.getOrderItemId());
+            item.setItemCode(line.getItemCode());
+            item.setItemName(line.getItemName());
+            item.setItemClass(line.getItemClass());
+            item.setSpec(line.getSpec());
+            item.setUnit(line.getUnit());
+            item.setUnitPrice(line.getUnitPrice());
+            item.setQuantity(line.getQuantity());
+            item.setAmount(line.getUnitPrice().multiply(line.getQuantity()));
+            item.setChargeDeptId(request.getDeptId());
+            item.setChargeTime(LocalDateTime.now());
+            item.setIsRefunded(0);
+            item.setItemStatus("NORMAL");
+            billItemMapper.insert(item);
+        }
+        return BillConverter.toVo(bill);
+    }
+
+    @Override
+    @Transactional
     public BillVo create(BillCreateRequest request) {
         Bill bill = newBill(bizNoGenerator.next(BizNoType.BILL), request.getPatientId(),
                 request.getAdmissionId(), request.getEncounterId(), request.getVisitType(),
@@ -138,7 +251,8 @@ public class BillServiceImpl implements BillService {
     @Transactional
     public BillVo voidBill(Long id, BillVoidRequest request) {
         Bill bill = requireLockedBill(id);
-        if (bill.getBillStatus() != BillStatus.UNSETTLED || zeroIfNull(bill.getPaidAmount()).signum() > 0) {
+        if (bill.getBillStatus() == BillStatus.CANCELLED) return BillConverter.toVo(bill);
+        if (bill.getBillStatus() == BillStatus.PARTIAL || zeroIfNull(bill.getPaidAmount()).signum() > 0) {
             throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
         }
         bill.setBillStatus(BillStatus.CANCELLED);
@@ -342,7 +456,7 @@ public class BillServiceImpl implements BillService {
 
     private Bill requireActiveBill(Long id) {
         Bill b = requireLockedBill(id);
-        if (b.getBillStatus() == BillStatus.SETTLED || b.getBillStatus() == BillStatus.CANCELLED) {
+        if (b.getSourceType() != null || b.getBillStatus() == BillStatus.SETTLED || b.getBillStatus() == BillStatus.CANCELLED) {
             throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
         }
         return b;

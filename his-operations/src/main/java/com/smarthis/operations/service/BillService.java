@@ -16,6 +16,8 @@ import com.smarthis.operations.dto.response.BillVo;
 import java.util.List;
 
 public interface BillService {
+    BillVo createFromOrder(com.smarthis.operations.dto.request.BillOrderRequest request);
+    BillVo voidOrderSource(com.smarthis.operations.dto.request.BillOrderCancelRequest request);
     BillVo create(BillCreateRequest request);
     BillVo getById(Long id);
     List<BillItemVo> listItems(Long id);

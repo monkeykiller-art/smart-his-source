@@ -1,4 +1,5 @@
 import type { PageResult } from './api'
+import type { MoneyValue } from '@/utils/money'
 
 export type BillStatus = 'UNSETTLED' | 'PARTIAL' | 'SETTLED' | 'CANCELLED'
 export type VisitType = 'OUTPATIENT' | 'INPATIENT' | 'EMERGENCY'
@@ -6,15 +7,17 @@ export type VisitType = 'OUTPATIENT' | 'INPATIENT' | 'EMERGENCY'
 export interface Bill {
   id: number
   billNo: string
+  sourceType?: 'REGISTRATION' | 'ORDER'
+  sourceId?: number
   patientId: number
   admissionId?: number
   encounterId?: number
   visitType?: VisitType
   deptId?: number
-  totalAmount: number
-  discountAmount: number
-  payableAmount: number
-  paidAmount: number
+  totalAmount: MoneyValue
+  discountAmount: MoneyValue
+  payableAmount: MoneyValue
+  paidAmount: MoneyValue
   billStatus: BillStatus
   billType?: string
   remark?: string
@@ -32,9 +35,9 @@ export interface BillItem {
   itemClass?: string
   spec?: string
   unit?: string
-  unitPrice: number
-  quantity: number
-  amount: number
+  unitPrice: MoneyValue
+  quantity: string | number
+  amount: MoneyValue
   orderId?: number
   orderItemId?: number
   chargeTime?: string
@@ -47,7 +50,7 @@ export interface BillTransaction {
   billId: number
   transactionNo: string
   transactionType: 'PAYMENT' | 'REFUND'
-  amount: number
+  amount: MoneyValue
   payMethod?: 'CASH' | 'POS' | 'WECHAT' | 'ALIPAY'
   referenceNo?: string
   reason?: string

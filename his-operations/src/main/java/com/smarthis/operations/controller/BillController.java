@@ -25,6 +25,16 @@ public class BillController {
 
     private final BillService billService;
 
+    @PostMapping("/order")
+    public ApiResponse<BillVo> createOrderBill(@Valid @RequestBody com.smarthis.operations.dto.request.BillOrderRequest request) {
+        return ApiResponse.ok(billService.createFromOrder(request));
+    }
+
+    @PostMapping("/order/void")
+    public ApiResponse<BillVo> voidOrderSource(@Valid @RequestBody com.smarthis.operations.dto.request.BillOrderCancelRequest request) {
+        return ApiResponse.ok(billService.voidOrderSource(request));
+    }
+
     @PostMapping
     public ApiResponse<BillVo> create(@Valid @RequestBody BillCreateRequest request) {
         return ApiResponse.ok(billService.create(request));

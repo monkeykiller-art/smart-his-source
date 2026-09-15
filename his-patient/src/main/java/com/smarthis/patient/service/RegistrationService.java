@@ -11,5 +11,6 @@ public interface RegistrationService {
     void cancel(Long id, String reason);
     void markPaid(Long id, Long billId);
     void refund(Long id, String reason);
+    void syncBilling(Long id);
     PageResult<RegistrationVo> query(RegistrationQueryRequest request);
 }

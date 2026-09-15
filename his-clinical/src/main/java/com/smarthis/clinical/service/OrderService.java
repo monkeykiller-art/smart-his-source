@@ -8,6 +8,7 @@ import com.smarthis.clinical.dto.response.OrderVo;
 import java.util.List;
 
 public interface OrderService {
+    void submit(Long id);
 
     OrderVo create(OrderCreateRequest request);
 

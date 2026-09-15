@@ -17,6 +17,8 @@ import com.smarthis.operations.entity.BillTransaction;
 import com.smarthis.operations.entity.FeeItem;
 import com.smarthis.operations.dto.request.BillChargeItemRequest;
 import com.smarthis.operations.dto.request.BillRegistrationRequest;
+import com.smarthis.operations.dto.request.BillOrderRequest;
+import com.smarthis.operations.dto.request.BillOrderCancelRequest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -194,6 +196,25 @@ class BillServiceImplTest {
         verify(billMapper, never()).updateById(any(Bill.class));
     }
 
+    @Test
+    void voidsZeroPriceSettledBillWithoutRefundingMoney() {
+        Bill bill = bill(42L, "0", "0", BillStatus.SETTLED);
+        when(billMapper.selectByIdForUpdate(42L)).thenReturn(bill);
+        BillVoidRequest request = new BillVoidRequest();
+        request.setReason("免费项目取消");
+        assertEquals("CANCELLED", service.voidBill(42L, request).getBillStatus());
+    }
+
+    @Test
+    void refusesManualChangesToGeneratedBusinessSourceSnapshot() {
+        Bill bill = bill(42L, "10", "0", BillStatus.UNSETTLED);
+        bill.setSourceType("ORDER");
+        bill.setSourceId(81L);
+        when(billMapper.selectByIdForUpdate(42L)).thenReturn(bill);
+        assertThrows(BusinessException.class, () -> service.addChargeItem(42L, chargeRequest(BigDecimal.ONE)));
+        verifyNoInteractions(feeItemMapper, billItemMapper);
+    }
+
     private Bill bill(Long id, String payable, String paid, BillStatus status) {
         Bill bill = new Bill();
         bill.setId(id);
@@ -310,6 +331,89 @@ class BillServiceImplTest {
         request.setEncounterId(82L);
         request.setAmount(new BigDecimal("12.50"));
         return request;
+    }
+
+    @Test
+    void createsExactOrderChargesAndReplaysWithoutDuplicateItems() {
+        java.util.List<BillItem> stored = new java.util.ArrayList<>();
+        java.util.concurrent.atomic.AtomicReference<Bill> bill = new java.util.concurrent.atomic.AtomicReference<>();
+        when(billMapper.insert(any(Bill.class))).thenAnswer(invocation -> {
+            Bill created = invocation.getArgument(0);
+            created.setId(91L);
+            bill.set(created);
+            return 1;
+        });
+        when(billItemMapper.insert(any(BillItem.class))).thenAnswer(invocation -> {
+            stored.add(invocation.getArgument(0));
+            return 1;
+        });
+        when(billMapper.selectOne(any())).thenAnswer(invocation -> bill.get());
+        when(billItemMapper.selectList(any())).thenReturn(stored);
+        BillOrderRequest request = orderRequest();
+        assertEquals(new BigDecimal("0.30"), service.createFromOrder(request).getPayableAmount());
+        assertEquals(91L, service.createFromOrder(request).getId());
+        assertEquals(1, stored.size());
+        assertEquals(82L, stored.getFirst().getOrderItemId());
+        assertEquals("ORDER", bill.get().getSourceType());
+        verify(billMapper, times(1)).insert(any(Bill.class));
+        request.getItems().getFirst().setItemName("changed item");
+        assertThrows(BusinessException.class, () -> service.createFromOrder(request));
+    }
+
+    @Test
+    void rejectsInvalidOrderAmountBeforePersistingAnyBill() {
+        BillOrderRequest request = orderRequest();
+        request.getItems().getFirst().setQuantity(new BigDecimal("-1"));
+        assertThrows(BusinessException.class, () -> service.createFromOrder(request));
+        verifyNoInteractions(billMapper, billItemMapper);
+    }
+
+    @Test
+    void replayingVoidPreservesOriginalReasonWithoutAnotherWrite() {
+        Bill cancelled = bill(91L, "0.30", "0", BillStatus.CANCELLED);
+        cancelled.setVoidReason("original reason");
+        when(billMapper.selectByIdForUpdate(91L)).thenReturn(cancelled);
+        BillVoidRequest request = new BillVoidRequest();
+        request.setReason("retry");
+        assertEquals("original reason", service.voidBill(91L, request).getVoidReason());
+        verify(billMapper, never()).updateById(any(Bill.class));
+    }
+
+    private BillOrderRequest orderRequest() {
+        BillOrderRequest request = new BillOrderRequest();
+        request.setOrderId(81L);
+        request.setPatientId(10L);
+        request.setEncounterId(31L);
+        request.setDeptId(20L);
+        BillOrderRequest.Item line = new BillOrderRequest.Item();
+        line.setOrderItemId(82L);
+        line.setItemName("测试检验");
+        line.setUnitPrice(new BigDecimal("0.10"));
+        line.setQuantity(new BigDecimal("3"));
+        request.setItems(List.of(line));
+        return request;
+    }
+
+    @Test
+    void cancellationIntentBlocksLateOrderBillingEvenIfNoBillWasReturned() {
+        java.util.concurrent.atomic.AtomicReference<Bill> source = new java.util.concurrent.atomic.AtomicReference<>();
+        when(billMapper.selectOne(any())).thenAnswer(invocation -> source.get());
+        when(billMapper.insert(any(Bill.class))).thenAnswer(invocation -> {
+            Bill bill = invocation.getArgument(0);
+            bill.setId(91L);
+            source.set(bill);
+            return 1;
+        });
+        BillOrderCancelRequest request = new BillOrderCancelRequest();
+        request.setOrderId(81L);
+        request.setPatientId(10L);
+        request.setEncounterId(31L);
+        request.setDeptId(20L);
+        request.setReason("医生撤销");
+        assertEquals("CANCELLED", service.voidOrderSource(request).getBillStatus());
+        assertThrows(BusinessException.class, () -> service.createFromOrder(orderRequest()));
+        verify(billMapper, times(1)).insert(any(Bill.class));
+        verifyNoInteractions(billItemMapper);
     }
 
     private BillChargeItemRequest chargeRequest(BigDecimal quantity) {

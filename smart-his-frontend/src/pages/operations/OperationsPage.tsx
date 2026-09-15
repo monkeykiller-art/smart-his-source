@@ -5,6 +5,7 @@ import type { TableColumnsType } from 'antd'
 import dayjs from 'dayjs'
 import { useState } from 'react'
 import { operationsApi } from '@/services/operationsApi'
+import { formatMoney as money, moneyAmount, moneyDue, moneySum, moneyUnits, validPayment } from '@/utils/money'
 import type { Bill, BillItem, BillPaymentRequest, BillQuery, BillRefundRequest, BillStatus, BillTransaction, VisitType } from '@/types/operations'
 
 const billStatusMeta: Record<BillStatus, { label: string; color: string }> = {
@@ -18,11 +19,10 @@ const visitTypeLabel: Record<VisitType, string> = {
   INPATIENT: '住院',
   EMERGENCY: '急诊',
 }
-const money = (value?: number) => `¥${(value ?? 0).toFixed(2)}`
 const newIdempotencyKey = () => crypto.randomUUID()
 const payMethodLabel: Record<string, string> = { CASH: '现金', POS: '银行卡', WECHAT: '微信', ALIPAY: '支付宝' }
 const transactionTypeLabel: Record<string, string> = { PAYMENT: '收款', REFUND: '退费' }
-const feeClassLabel: Record<string, string> = { REGISTRATION: '挂号费', REG: '挂号费', DRUG: '药费', LAB: '检验费', IMAGING: '检查费', EXAM: '检查项目', BED: '床位费', NURSING: '护理费', TREATMENT: '治疗费', MATERIAL: '材料费', OTHER: '其他费用' }
+const feeClassLabel: Record<string, string> = { REGISTRATION: '挂号费', REG: '挂号费', DRUG: '药费', MEDICINE: '药费', LAB: '检验费', IMAGING: '检查费', EXAM: '检查项目', BED: '床位费', NURSING: '护理费', TREATMENT: '治疗费', MATERIAL: '材料费', OTHER: '其他费用' }
 
 export function OperationsPage() {
   const queryClient = useQueryClient()
@@ -69,6 +69,7 @@ export function OperationsPage() {
       queryClient.invalidateQueries({ queryKey: ['operations-bills'] }),
       queryClient.invalidateQueries({ queryKey: ['operations-bill', selectedBillId] }),
       queryClient.invalidateQueries({ queryKey: ['operations-bill-transactions', selectedBillId] }),
+      queryClient.invalidateQueries({ queryKey: ['registrations'] }),
     ])
   }
   const paymentMutation = useMutation({
@@ -106,15 +107,15 @@ export function OperationsPage() {
   const openPayment = () => {
     if (!billDetail.data) return
     setActionError('')
-    setPaymentAmount(String(Math.max(billDetail.data.payableAmount - billDetail.data.paidAmount, 0).toFixed(2)))
+    setPaymentAmount(moneyDue(billDetail.data.payableAmount, billDetail.data.paidAmount))
     setPaymentMethod('CASH')
     setPaymentReference('')
     setPaymentKey(newIdempotencyKey())
     setPaymentOpen(true)
   }
   const confirmPayment = async () => {
-    if (selectedBillId === undefined || !paymentAmount || Number(paymentAmount) <= 0) {
-      setActionError('请输入大于 0 的收款金额。')
+    if (selectedBillId === undefined || !billDetail.data || !validPayment(paymentAmount, moneyDue(billDetail.data.payableAmount, billDetail.data.paidAmount))) {
+      setActionError('请输入大于 0、不超过待收余额的金额，最多四位小数。')
       return
     }
     setActionError('')
@@ -131,13 +132,13 @@ export function OperationsPage() {
   const openRefund = () => {
     if (!billDetail.data) return
     setActionError('')
-    setRefundAmount(String(billDetail.data.paidAmount.toFixed(2)))
+    setRefundAmount(moneyAmount(billDetail.data.paidAmount))
     setRefundReason('')
     setRefundKey(newIdempotencyKey())
     setRefundOpen(true)
   }
   const confirmRefund = async () => {
-    if (selectedBillId === undefined || !refundAmount || Number(refundAmount) <= 0 || !refundReason.trim()) {
+    if (selectedBillId === undefined || !billDetail.data || !validPayment(refundAmount, billDetail.data.paidAmount) || !refundReason.trim()) {
       setActionError('请填写有效退费金额和退费原因。')
       return
     }
@@ -167,8 +168,8 @@ export function OperationsPage() {
   }
 
   const rows = bills.data?.records || []
-  const pageDue = rows.reduce((total, bill) => total + Math.max((bill.payableAmount || 0) - (bill.paidAmount || 0), 0), 0)
-  const pagePaid = rows.reduce((total, bill) => total + (bill.paidAmount || 0), 0)
+  const pageDue = moneySum(rows.filter(bill => bill.billStatus !== 'CANCELLED').map(bill => moneyDue(bill.payableAmount, bill.paidAmount)))
+  const pagePaid = moneySum(rows.map(bill => bill.paidAmount))
   const columns: TableColumnsType<Bill> = [
     { title: '账单号', dataIndex: 'billNo', width: 180, render: (value) => <strong>{value}</strong> },
     { title: '患者编号', dataIndex: 'patientId', width: 105 },
@@ -176,7 +177,7 @@ export function OperationsPage() {
     { title: '费用合计', dataIndex: 'totalAmount', width: 110, align: 'right', render: money },
     { title: '应收金额', dataIndex: 'payableAmount', width: 110, align: 'right', render: money },
     { title: '已收金额', dataIndex: 'paidAmount', width: 110, align: 'right', render: money },
-    { title: '待收金额', key: 'due', width: 110, align: 'right', render: (_, row) => money(Math.max((row.payableAmount || 0) - (row.paidAmount || 0), 0)) },
+    { title: '待收金额', key: 'due', width: 110, align: 'right', render: (_, row) => money(row.billStatus === 'CANCELLED' ? '0' : moneyDue(row.payableAmount, row.paidAmount)) },
     { title: '状态', dataIndex: 'billStatus', width: 105, render: (value: BillStatus) => { const status = billStatusMeta[value]; return <Tag color={status?.color}>{status?.label || value}</Tag> } },
     { title: '开单时间', dataIndex: 'createdTime', width: 155, render: (value) => value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—' },
     { title: '操作', key: 'action', width: 90, fixed: 'right', render: (_, row) => <Button type="link" icon={<EyeOutlined />} onClick={() => setSelectedBillId(row.id)}>费用明细</Button> },
@@ -207,8 +208,8 @@ export function OperationsPage() {
     </div>
     <section className="metric-grid operations-metrics" aria-label="当前页收费汇总">
       <Card size="small" className="metric-card"><div className="metric-label">当前页账单</div><div className="metric-value">{bills.data?.total ?? '—'}<small> 笔</small></div><div className="metric-note">按当前筛选条件</div></Card>
-      <Card size="small" className="metric-card"><Statistic title="当前页待收" value={pageDue} precision={2} prefix="¥" /></Card>
-      <Card size="small" className="metric-card"><Statistic title="当前页已收" value={pagePaid} precision={2} prefix="¥" /></Card>
+      <Card size="small" className="metric-card"><Statistic title="当前页待收" value={pageDue} formatter={() => money(pageDue)} /></Card>
+      <Card size="small" className="metric-card"><Statistic title="当前页已收" value={pagePaid} formatter={() => money(pagePaid)} /></Card>
       <Card size="small" className="metric-card"><div className="metric-label">默认范围</div><div className="metric-value operations-default">待缴账单</div><div className="metric-note">可切换查看其他状态</div></Card>
     </section>
     <Card className="patient-table-card" title="账单查询" extra={<Space wrap className="operations-filters">
@@ -225,14 +226,15 @@ export function OperationsPage() {
     <Drawer title="账单费用明细" width={820} open={selectedBillId !== undefined} onClose={() => setSelectedBillId(undefined)} extra={billDetail.data && <Space wrap>
       <Tag color={billStatusMeta[billDetail.data.billStatus]?.color}>{billStatusMeta[billDetail.data.billStatus]?.label || billDetail.data.billStatus}</Tag>
       {['UNSETTLED', 'PARTIAL'].includes(billDetail.data.billStatus) && <Button type="primary" onClick={openPayment}>登记收款</Button>}
-      {billDetail.data.paidAmount > 0 && billDetail.data.billStatus !== 'CANCELLED' && <Button danger onClick={openRefund}>登记退费</Button>}
-      {billDetail.data.billStatus === 'UNSETTLED' && billDetail.data.paidAmount === 0 && <Button danger onClick={() => { setActionError(''); setVoidReason(''); setVoidOpen(true) }}>作废账单</Button>}
+      {moneyUnits(billDetail.data.paidAmount) > 0n && billDetail.data.billStatus !== 'CANCELLED' && <Button danger onClick={openRefund}>登记退费</Button>}
+      {['UNSETTLED', 'SETTLED'].includes(billDetail.data.billStatus) && moneyUnits(billDetail.data.paidAmount) === 0n && <Button danger onClick={() => { setActionError(''); setVoidReason(''); setVoidOpen(true) }}>作废账单</Button>}
     </Space>}>
       {billDetail.isError && <Alert type="error" showIcon message="账单信息读取失败" />}
       {actionError && !paymentOpen && !refundOpen && !voidOpen && <Alert type="error" showIcon message={actionError} style={{ marginBottom: 8 }} />}
       {billDetail.data && <Descriptions bordered size="small" column={2} items={[
         { key: 'billNo', label: '账单号', children: billDetail.data.billNo },
         { key: 'patientId', label: '患者编号', children: billDetail.data.patientId },
+        { key: 'source', label: '账单来源', children: billDetail.data.sourceType === 'REGISTRATION' ? `挂号 ${billDetail.data.sourceId}` : billDetail.data.sourceType === 'ORDER' ? `医嘱 ${billDetail.data.sourceId}` : '窗口建账' },
         { key: 'visitType', label: '就诊类型', children: visitTypeLabel[billDetail.data.visitType as VisitType] || '—' },
         { key: 'createdTime', label: '开单时间', children: billDetail.data.createdTime ? dayjs(billDetail.data.createdTime).format('YYYY-MM-DD HH:mm') : '—' },
         { key: 'payableAmount', label: '应收金额', children: money(billDetail.data.payableAmount) },
@@ -250,7 +252,7 @@ export function OperationsPage() {
       {actionError && <Alert type="error" showIcon message={actionError} style={{ marginBottom: 12 }} />}
       <p>此操作登记线下收款并更新账单余额，不会调用第三方支付平台。</p>
       <div className="operations-action-form">
-        <label>收款金额</label><InputNumber stringMode min="0.0001" step="0.01" precision={2} value={paymentAmount} onChange={(value) => setPaymentAmount(value == null ? '' : String(value))} style={{ width: '100%' }} />
+        <label>收款金额</label><InputNumber stringMode min="0.0001" step="0.01" precision={4} value={paymentAmount} onChange={(value) => setPaymentAmount(value == null ? '' : String(value))} style={{ width: '100%' }} />
         <label>收款方式</label><Select value={paymentMethod} onChange={setPaymentMethod} options={Object.entries(payMethodLabel).map(([value, label]) => ({ value, label }))} />
         <label>凭证/参考号</label><Input maxLength={64} value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} />
       </div>
@@ -259,7 +261,7 @@ export function OperationsPage() {
       {actionError && <Alert type="error" showIcon message={actionError} style={{ marginBottom: 12 }} />}
       <Alert type="warning" showIcon message={`当前已收 ${money(billDetail.data?.paidAmount)}，退费金额不能超过已收余额。`} style={{ marginBottom: 12 }} />
       <div className="operations-action-form">
-        <label>退费金额</label><InputNumber stringMode min="0.0001" step="0.01" precision={2} value={refundAmount} onChange={(value) => setRefundAmount(value == null ? '' : String(value))} style={{ width: '100%' }} />
+        <label>退费金额</label><InputNumber stringMode min="0.0001" step="0.01" precision={4} value={refundAmount} onChange={(value) => setRefundAmount(value == null ? '' : String(value))} style={{ width: '100%' }} />
         <label>退费原因</label><Input maxLength={256} value={refundReason} onChange={(event) => setRefundReason(event.target.value)} />
       </div>
     </Modal>

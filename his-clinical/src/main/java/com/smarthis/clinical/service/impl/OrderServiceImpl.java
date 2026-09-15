@@ -33,6 +33,34 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final BizNoGenerator bizNoGenerator;
+    private final com.smarthis.clinical.client.OperationsClient operationsClient;
+
+    @Override
+    @Transactional
+    public void submit(Long id) {
+        Order order = orderMapper.selectByIdForUpdate(id);
+        if (order == null) throw new BusinessException(ErrorCode.ORDER_INVALID);
+        if ("SUBMITTED".equals(order.getOrderStatus())) return;
+        if (!"DRAFT".equals(order.getOrderStatus()) || order.getEncounterId() == null) {
+            throw new BusinessException(ErrorCode.ORDER_STATUS_INVALID);
+        }
+        LambdaQueryWrapper<OrderItem> query = new LambdaQueryWrapper<>();
+        query.eq(OrderItem::getOrderId, id).eq(OrderItem::getDeleted, 0);
+        List<OrderItem> items = orderItemMapper.selectList(query);
+        if (items.isEmpty()) throw new BusinessException(ErrorCode.ORDER_STATUS_INVALID);
+        for (OrderItem item : items) {
+            if (item.getUnitPrice() == null || item.getUnitPrice().signum() < 0
+                    || item.getQuantity() == null || item.getQuantity().signum() <= 0) {
+                throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+            }
+            var amount = item.getUnitPrice().multiply(item.getQuantity());
+            if (amount.scale() > 4 || amount.precision() - amount.scale() > 14) {
+                throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+            }
+        }
+        order.setOrderStatus("SUBMITTED");
+        orderMapper.updateById(order);
+    }
 
     @Override
     @Transactional
@@ -87,9 +115,21 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void cancel(Long id, OrderCancelRequest request) {
-        Order order = getEntity(id);
+        Order order = orderMapper.selectByIdForUpdate(id);
+        if (order == null) throw new BusinessException(ErrorCode.ORDER_INVALID);
         if ("COMPLETED".equals(order.getOrderStatus()) || "CANCELLED".equals(order.getOrderStatus())) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_INVALID);
+        }
+        if (!"DRAFT".equals(order.getOrderStatus()) || order.getBillId() != null) {
+            java.util.Map<String, Object> source = new java.util.HashMap<>();
+            source.put("orderId", id);
+            source.put("patientId", order.getPatientId());
+            source.put("encounterId", order.getEncounterId());
+            source.put("deptId", order.getDeptId());
+            source.put("billId", order.getBillId());
+            source.put("reason", request.getReason() == null || request.getReason().isBlank() ? "取消医嘱" : request.getReason());
+            var response = operationsClient.voidOrderSource(source);
+            if (response == null || response.getCode() != 200) throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
         }
         order.setOrderStatus("CANCELLED");
         order.setCancelNurseId(request.getNurseId());

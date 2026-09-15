@@ -16,6 +16,8 @@ public final class BillConverter {
         BillVo vo = new BillVo();
         vo.setId(e.getId());
         vo.setBillNo(e.getBillNo());
+        vo.setSourceType(e.getSourceType());
+        vo.setSourceId(e.getSourceId());
         vo.setPatientId(e.getPatientId());
         vo.setAdmissionId(e.getAdmissionId());
         vo.setEncounterId(e.getEncounterId());

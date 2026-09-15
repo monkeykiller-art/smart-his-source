@@ -18,6 +18,14 @@ import java.util.List;
 public class OrderController {
 
     private final OrderService orderService;
+    private final com.smarthis.clinical.service.impl.OrderBillingService billingService;
+
+    @PutMapping("/{id}/submit")
+    public ApiResponse<OrderVo> submit(@PathVariable Long id) {
+        orderService.submit(id);
+        billingService.sync(id);
+        return ApiResponse.ok(orderService.getById(id));
+    }
 
     @PostMapping
     public ApiResponse<OrderVo> create(@Valid @RequestBody OrderCreateRequest request) {

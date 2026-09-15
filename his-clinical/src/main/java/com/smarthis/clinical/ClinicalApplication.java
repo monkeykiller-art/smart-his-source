@@ -10,6 +10,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 @EnableDiscoveryClient
 @EnableFeignClients
 @EnableCaching
+@org.springframework.scheduling.annotation.EnableScheduling
 public class ClinicalApplication {
     public static void main(String[] args) {
         SpringApplication.run(ClinicalApplication.class, args);

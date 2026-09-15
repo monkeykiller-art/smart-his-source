@@ -15,8 +15,11 @@ public class BillItemVo {
     private String itemClass;
     private String spec;
     private String unit;
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private BigDecimal unitPrice;
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private BigDecimal quantity;
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private BigDecimal amount;
     private Long chargeDeptId;
     private Long executeDeptId;

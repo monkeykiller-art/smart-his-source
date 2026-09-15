@@ -123,6 +123,7 @@ export interface ClinicalOrder {
   orderType: string
   orderCategory?: string
   orderStatus: string
+  billId?: number
   isStat?: number
   orderTime?: string
   remark?: string

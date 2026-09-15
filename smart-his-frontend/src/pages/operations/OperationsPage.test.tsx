@@ -68,4 +68,23 @@ describe('OperationsPage', () => {
       amount: '12.00', payMethod: 'CASH', idempotencyKey: expect.any(String),
     })))
   }, 15_000)
+
+  it('charges the exact four-decimal remainder and reuses the key after a failed response', async () => {
+    vi.mocked(operationsApi.getBill).mockResolvedValue({ id: 12, billNo: 'B20260914001', patientId: 1001,
+      totalAmount: '0.3456', discountAmount: '0', payableAmount: '0.3456', paidAmount: '0.1000', billStatus: 'PARTIAL', sourceType: 'ORDER', sourceId: 81 })
+    vi.mocked(operationsApi.payBill).mockRejectedValueOnce(new Error('timeout'))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
+    await screen.findByText('B20260914001')
+    fireEvent.click(screen.getByRole('button', { name: /费用明细/ }))
+    fireEvent.click(await screen.findByRole('button', { name: '登记收款' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认收款' }))
+    await screen.findByText(/收款未完成/)
+    const first = vi.mocked(operationsApi.payBill).mock.calls[0][1]
+    expect(first.amount).toBe('0.2456')
+    fireEvent.click(screen.getByRole('button', { name: '确认收款' }))
+    await waitFor(() => expect(operationsApi.payBill).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(operationsApi.payBill).mock.calls[1][1]).toEqual(first)
+    client.clear()
+  }, 15_000)
 })

@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import { useState } from 'react'
 import { patientApi } from '@/services/patientApi'
 import { registrationApi } from '@/services/registrationApi'
+import { formatMoney } from '@/utils/money'
 import type { Registration, RegistrationCreateRequest, Schedule } from '@/types/registration'
 
 const periodText: Record<string, string> = { MORNING: '上午', AFTERNOON: '下午', EVENING: '晚间', ALL_DAY: '全天' }
@@ -45,6 +46,7 @@ export function RegistrationPage() {
   const registrations = useQuery({
     queryKey: ['registrations', page, size, date, deptId, doctorId, status, payStatusFilter],
     queryFn: () => registrationApi.queryRegistrations({ page, size, regDate: date, deptId, doctorId, regStatus: status, payStatus: payStatusFilter }),
+    refetchInterval: 30000,
   })
   const patients = useQuery({
     queryKey: ['patients', 'registration-options', patientKeyword],
@@ -56,6 +58,7 @@ export function RegistrationPage() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['registrations'] }),
       queryClient.invalidateQueries({ queryKey: ['schedules'] }),
+      queryClient.invalidateQueries({ queryKey: ['operations-bills'] }),
     ])
   }
   const createRegistration = useMutation({
@@ -75,7 +78,7 @@ export function RegistrationPage() {
   })
   const markPaid = useMutation({
     mutationFn: (id: number) => registrationApi.markPaid(id),
-    onSuccess: async () => { messageApi.success('缴费状态已确认'); await refreshRegistrationData() },
+    onSuccess: async () => { messageApi.success('现金收款已登记，挂号缴费完成'); await refreshRegistrationData() },
     onError: () => messageApi.error('确认缴费失败，请检查账单状态或服务连接。'),
   })
   const refundRegistration = useMutation({
@@ -94,7 +97,7 @@ export function RegistrationPage() {
     { title: '职级', dataIndex: 'regLevel', width: 100, render: (value) => value || '普通号' },
     { title: '时段', dataIndex: 'timePeriod', width: 90, render: (value, row) => `${periodText[value] || value}${row.startTime ? ` ${row.startTime.slice(0, 5)}` : ''}` },
     { title: '号源', key: 'quota', width: 110, render: (_, row) => <span><strong>{row.availableQuota}</strong> / {row.totalQuota}</span> },
-    { title: '挂号费', dataIndex: 'regFee', width: 90, render: (value) => `¥${Number(value).toFixed(2)}` },
+    { title: '挂号费', dataIndex: 'regFee', width: 90, render: (value) => formatMoney(value) },
     { title: '状态', dataIndex: 'scheduleStatus', width: 90, render: (value, row) => <Tag color={value === 'ACTIVE' && row.availableQuota > 0 ? 'success' : 'default'}>{value === 'ACTIVE' ? (row.availableQuota > 0 ? '可挂号' : '已满') : '已停诊'}</Tag> },
     { title: '操作', key: 'action', width: 90, fixed: 'right', render: (_, row) => <Button type="link" disabled={row.scheduleStatus !== 'ACTIVE' || row.availableQuota <= 0} onClick={() => { form.setFieldValue('scheduleId', row.id); setCreateOpen(true) }}>挂号</Button> },
   ]
@@ -105,11 +108,11 @@ export function RegistrationPage() {
     { title: '医生', dataIndex: 'doctorName', width: 100 },
     { title: '就诊序号', dataIndex: 'visitSeq', width: 100, render: (value) => `第 ${value} 号` },
     { title: '日期/时段', key: 'period', width: 150, render: (_, row) => `${row.regDate} ${periodText[row.timePeriod] || row.timePeriod}` },
-    { title: '费用', dataIndex: 'regFee', width: 80, render: (value) => `¥${Number(value).toFixed(2)}` },
+    { title: '费用', dataIndex: 'regFee', width: 80, render: (value) => formatMoney(value) },
     { title: '缴费', dataIndex: 'payStatus', width: 90, render: (value) => { const item = paymentStatus[value]; return <Tag color={item?.color}>{item?.text || value}</Tag> } },
     { title: '状态', dataIndex: 'regStatus', width: 90, render: (value) => { const item = registrationStatus[value]; return <Tag color={item?.color}>{item?.text || value}</Tag> } },
     { title: '操作', key: 'action', width: 190, fixed: 'right', render: (_, row) => row.regStatus === 'ACTIVE' ? <Space size={2}>
-      {row.payStatus === 'UNPAID' && <Popconfirm title="确认收到挂号费？" description={`本次应收 ¥${Number(row.regFee).toFixed(2)}`} okText="确认缴费" cancelText="返回" onConfirm={() => markPaid.mutate(row.id)}><Button type="link" icon={<DollarOutlined />}>确认缴费</Button></Popconfirm>}
+      {row.payStatus === 'UNPAID' && <Popconfirm title="确认收到挂号费？" description={`本次应收 ${formatMoney(row.regFee)}，确认后登记现金收款`} okText="确认缴费" cancelText="返回" onConfirm={() => markPaid.mutate(row.id)}><Button type="link" icon={<DollarOutlined />}>确认缴费</Button></Popconfirm>}
       {row.payStatus === 'PAID' ? <Popconfirm title="确认退费并退号？" description="操作后挂号失效，号源将被释放。" okText="确认退费" cancelText="返回" onConfirm={() => refundRegistration.mutate(row.id)}><Button danger type="link">退费退号</Button></Popconfirm> : <Popconfirm title="确认取消挂号？" description="取消后号源将被释放。" okText="确认" cancelText="返回" onConfirm={() => cancelRegistration.mutate(row.id)}><Button danger type="link" icon={<StopOutlined />}>取消</Button></Popconfirm>}
     </Space> : '—' },
   ]

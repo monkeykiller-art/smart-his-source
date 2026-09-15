@@ -43,12 +43,15 @@ public class EncounterServiceImpl implements EncounterService {
     @Override
     @Transactional
     public EncounterVo open(Long regId, String chiefComplaint) {
-        Registration reg = registrationMapper.selectById(regId);
+        Registration reg = registrationMapper.selectByIdForUpdate(regId);
         if (reg == null || reg.getDeleted() != 0) {
             throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
         }
         if ("CANCELLED".equals(reg.getRegStatus())) {
             throw new BusinessException(ErrorCode.REGISTRATION_CANCELLED);
+        }
+        if (!"PAID".equals(reg.getPayStatus())) {
+            throw new BusinessException(ErrorCode.REGISTRATION_PAYMENT_REQUIRED);
         }
 
         Encounter existing = findByRegId(regId);

@@ -99,6 +99,7 @@ class AllSchemasMigrationTest {
             }
             if ("his-operations".equals(service.getKey())) {
                 assertBillSourceUniqueness();
+                assertBillSourceLockSerializesConcurrentRequests();
             }
         }
 
@@ -141,6 +142,32 @@ class AllSchemasMigrationTest {
             statement.setString(2, "BL-M3-2");
             SQLException exception = assertThrows(SQLException.class, statement::executeUpdate);
             assertEquals("23505", exception.getSQLState(), "One registration must not create two bills");
+        }
+    }
+
+    private void assertBillSourceLockSerializesConcurrentRequests() throws Exception {
+        try (Connection first = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Connection second = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())) {
+            first.setAutoCommit(false);
+            second.setAutoCommit(false);
+            try (PreparedStatement lock = first.prepareStatement("SELECT 1 FROM pg_advisory_xact_lock(hashtextextended('ORDER:81', 0))")) {
+                try (ResultSet result = lock.executeQuery()) {
+                    assertTrue(result.next());
+                    assertEquals(1, result.getInt(1));
+                }
+            }
+            try (PreparedStatement attempt = second.prepareStatement("SELECT pg_try_advisory_xact_lock(hashtextextended('ORDER:81', 0))")) {
+                try (ResultSet result = attempt.executeQuery()) {
+                    assertTrue(result.next());
+                    assertTrue(!result.getBoolean(1), "Concurrent operations on one order must be serialized");
+                }
+                first.commit();
+                try (ResultSet result = attempt.executeQuery()) {
+                    assertTrue(result.next());
+                    assertTrue(result.getBoolean(1), "Source lock must be released after commit");
+                }
+            }
+            second.rollback();
         }
     }
 

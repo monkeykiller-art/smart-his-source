@@ -26,6 +26,7 @@ const encounterStatus: Record<string, { text: string; color: string }> = {
   PLANNED: { text: '待接诊', color: 'warning' }, IN_PROGRESS: { text: '接诊中', color: 'processing' }, CLOSED: { text: '已结束', color: 'default' },
 }
 const orderStatus: Record<string, { text: string; color: string }> = {
+  SUBMITTED: { text: '已提交', color: 'processing' },
   DRAFT: { text: '草稿', color: 'default' }, PENDING: { text: '待审核', color: 'warning' }, VERIFIED: { text: '已审核', color: 'processing' },
   EXECUTING: { text: '执行中', color: 'blue' }, COMPLETED: { text: '已完成', color: 'success' }, CANCELLED: { text: '已取消', color: 'default' }, STOPPED: { text: '已停止', color: 'default' },
 }
@@ -80,6 +81,7 @@ export function ClinicalPage() {
   })
   const orders = useQuery({
     queryKey: ['clinical-orders', selectedRegistration?.patientId], queryFn: () => clinicalApi.listOrders(selectedRegistration!.patientId), enabled: Boolean(selectedRegistration?.patientId),
+    refetchInterval: (query) => query.state.data?.some((order) => order.orderStatus === 'SUBMITTED' && !order.billId) ? 30000 : false,
   })
   const icdOptions = useQuery({
     queryKey: ['icd10', icdKeyword], queryFn: () => clinicalApi.searchIcd10(icdKeyword), enabled: diagnosisOpen && icdKeyword.trim().length > 0,
@@ -145,7 +147,16 @@ export function ClinicalPage() {
   const cancelOrder = useMutation({
     mutationFn: (id: number) => clinicalApi.cancelOrder(id, '医生撤销'),
     onSuccess: async () => { messageApi.success('医嘱已取消'); await refreshClinicalData() },
-    onError: () => messageApi.error('医嘱取消失败，当前状态可能不允许取消。'),
+    onError: () => messageApi.error('医嘱取消失败，请确认账单尚未收款且运营服务可用。'),
+  })
+  const submitOrder = useMutation({
+    mutationFn: (id: number) => clinicalApi.submitOrder(id),
+    onSuccess: async (order) => {
+      messageApi.success(order.billId ? '医嘱已提交，费用已入账' : '医嘱已提交，费用待入账，请稍后刷新')
+      await refreshClinicalData()
+      await queryClient.invalidateQueries({ queryKey: ['operations-bills'] })
+    },
+    onError: () => messageApi.error('提交失败，请核对数量、单价和医嘱状态。'),
   })
 
   const openNewRecord = () => {
@@ -174,8 +185,12 @@ export function ClinicalPage() {
     { title: '医嘱号', dataIndex: 'orderNo', width: 150 }, { title: '类型', dataIndex: 'orderType', width: 90, render: (value) => orderTypeText[value] || value },
     { title: '项目', key: 'items', render: (_, row) => row.items?.map((item) => item.itemName).join('、') || '—' },
     { title: '状态', dataIndex: 'orderStatus', width: 100, render: (value) => { const item = orderStatus[value]; return <Tag color={item?.color}>{item?.text || value}</Tag> } },
+    { title: '费用', key: 'billing', width: 110, render: (_, row) => row.orderStatus === 'CANCELLED' ? '已取消' : row.billId ? <Tag color="green">已入账</Tag> : row.orderStatus === 'DRAFT' ? '未提交' : <Tag color="gold">待入账</Tag> },
     { title: '开立时间', dataIndex: 'orderTime', width: 160, render: (value) => value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—' },
-    { title: '操作', key: 'action', width: 90, render: (_, row) => !isClosed && !['CANCELLED', 'COMPLETED', 'STOPPED'].includes(row.orderStatus) ? <Popconfirm title="确认取消该医嘱？" onConfirm={() => cancelOrder.mutate(row.id)}><Button danger type="link">取消</Button></Popconfirm> : '—' },
+    { title: '操作', key: 'action', width: 170, render: (_, row) => !isClosed && !['CANCELLED', 'COMPLETED', 'STOPPED'].includes(row.orderStatus) ? <Space size={0}>
+      {['DRAFT', 'SUBMITTED'].includes(row.orderStatus) && !row.billId && <Button type="link" loading={submitOrder.isPending} onClick={() => submitOrder.mutate(row.id)}>{row.orderStatus === 'DRAFT' ? '提交收费' : '重试入账'}</Button>}
+      <Popconfirm title="确认取消该医嘱？已收款账单须先退费。" onConfirm={() => cancelOrder.mutate(row.id)}><Button danger type="link" loading={cancelOrder.isPending}>取消</Button></Popconfirm>
+    </Space> : '—' },
   ]
   const tabItems = [
     { key: 'record', label: `病历 ${records.data?.length || 0}`, children: <Table<MedicalRecord> rowKey="id" columns={recordColumns} dataSource={records.data || []} loading={records.isLoading} pagination={false} scroll={{ x: 850 }} locale={{ emptyText: '尚未书写本次门诊病历' }} /> },
@@ -254,7 +269,7 @@ export function ClinicalPage() {
         <Form.Item name="days" label="天数"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
         <Form.Item name="quantity" label="数量" rules={selectedOrderType === 'MEDICINE' ? [{ required: true, message: '药品医嘱需要填写数量' }] : []}><InputNumber min={0.01} precision={2} style={{ width: '100%' }} /></Form.Item>
         <Form.Item name="quantityUnit" label="数量单位"><Input placeholder="盒、支、次等" /></Form.Item>
-        <Form.Item name="unitPrice" label="单价"><InputNumber min={0} precision={2} prefix="¥" style={{ width: '100%' }} /></Form.Item>
+        <Form.Item name="unitPrice" label="单价" rules={[{ required: true, message: '请填写单价，免费项目填写 0' }]}><InputNumber min={0} precision={2} prefix="¥" style={{ width: '100%' }} /></Form.Item>
         <Form.Item name="remark" label="备注" className="form-span-2"><Input.TextArea rows={2} /></Form.Item>
       </Form>
     </Modal>

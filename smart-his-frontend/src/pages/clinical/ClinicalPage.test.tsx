@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClinicalPage } from './ClinicalPage'
 import { clinicalApi } from '@/services/clinicalApi'
@@ -8,7 +8,7 @@ import { registrationApi } from '@/services/registrationApi'
 
 vi.mock('@/services/clinicalApi', () => ({ clinicalApi: {
   listRecordsByEncounter: vi.fn(), listDiagnoses: vi.fn(), listOrders: vi.fn(), searchIcd10: vi.fn(),
-  createRecord: vi.fn(), updateRecord: vi.fn(), signRecord: vi.fn(), createDiagnosis: vi.fn(), deleteDiagnosis: vi.fn(), createOrder: vi.fn(), cancelOrder: vi.fn(),
+  createRecord: vi.fn(), updateRecord: vi.fn(), signRecord: vi.fn(), createDiagnosis: vi.fn(), deleteDiagnosis: vi.fn(), createOrder: vi.fn(), cancelOrder: vi.fn(), submitOrder: vi.fn(),
 } }))
 vi.mock('@/services/patientApi', () => ({ patientApi: { getById: vi.fn() } }))
 vi.mock('@/services/registrationApi', () => ({ registrationApi: {
@@ -40,5 +40,24 @@ describe('ClinicalPage', () => {
     expect(screen.getByRole('button', { name: /开始接诊/ })).toBeEnabled()
     expect(screen.getByRole('button', { name: /写病历/ })).toBeDisabled()
     expect(screen.getByText('当前患者尚未开始接诊')).toBeInTheDocument()
+  })
+
+  it('submits a draft order for billing and displays the linked bill state', async () => {
+    vi.mocked(registrationApi.getEncounterByRegistration).mockResolvedValue({ id: 31, encounterNo: 'JZ001', patientId: 5, regId: 12, deptId: 2, doctorId: 8, encounterType: 'OUTPATIENT', encounterStatus: 'IN_PROGRESS', visitDate: '2026-09-11' })
+    const order = { id: 81, orderNo: 'YZ081', encounterId: 31, patientId: 5, deptId: 2, doctorId: 8, orderType: 'LAB', orderStatus: 'DRAFT', items: [{ itemName: '测试检验', unitPrice: 0.10, quantity: 3 }] }
+    vi.mocked(clinicalApi.listOrders).mockResolvedValue([order])
+    vi.mocked(clinicalApi.submitOrder).mockImplementation(async () => {
+      const submitted = { ...order, orderStatus: 'SUBMITTED', billId: 91 }
+      vi.mocked(clinicalApi.listOrders).mockResolvedValue([submitted])
+      return submitted
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><ClinicalPage /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('tab', { name: /医嘱 1/ }))
+    fireEvent.click(await screen.findByRole('button', { name: '提交收费' }))
+    await waitFor(() => expect(clinicalApi.submitOrder).toHaveBeenCalledWith(81))
+    expect(await screen.findByText('已入账')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '提交收费' })).not.toBeInTheDocument()
+    client.clear()
   })
 })

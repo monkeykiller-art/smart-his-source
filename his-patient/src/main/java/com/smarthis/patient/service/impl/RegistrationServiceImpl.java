@@ -46,6 +46,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.util.UUID;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -167,16 +169,22 @@ public class RegistrationServiceImpl implements RegistrationService {
     @Override
     @Transactional
     public void cancel(Long id, String reason) {
-        Registration reg = registrationMapper.selectById(id);
+        Registration reg = registrationMapper.selectByIdForUpdate(id);
         if (reg == null || reg.getDeleted() != 0) {
             throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
         }
         if ("CANCELLED".equals(reg.getRegStatus())) {
             throw new BusinessException(ErrorCode.REGISTRATION_CANCELLED);
         }
-        if ("PAID".equals(reg.getPayStatus())) {
+        if ("PAID".equals(reg.getPayStatus()) && (reg.getRegFee() == null || reg.getRegFee().signum() > 0)) {
             throw new BusinessException(ErrorCode.REGISTRATION_PAYMENT_REQUIRED);
         }
+        requirePlannedEncounter(reg);
+        var bill = registrationBill(reg);
+        if (decimal(bill, "paidAmount").signum() > 0) {
+            throw new BusinessException(ErrorCode.REGISTRATION_PAYMENT_REQUIRED);
+        }
+        requireResponse(operationsClient.voidBill(reg.getBillId(), Map.of("reason", cancellationReason(reason))));
         reg.setRegStatus("CANCELLED");
         reg.setCancelReason(reason);
         reg.setCancelTime(LocalDateTime.now());
@@ -189,16 +197,28 @@ public class RegistrationServiceImpl implements RegistrationService {
     @Override
     @Transactional
     public void markPaid(Long id, Long billId) {
-        Registration reg = registrationMapper.selectById(id);
+        Registration reg = registrationMapper.selectByIdForUpdate(id);
         if (reg == null || reg.getDeleted() != 0) {
             throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
         }
         if ("CANCELLED".equals(reg.getRegStatus())) {
             throw new BusinessException(ErrorCode.REGISTRATION_CANCELLED);
         }
-        if ("PAID".equals(reg.getPayStatus())) {
-            throw new BusinessException(ErrorCode.REGISTRATION_ALREADY_PAID);
+        if (billId != null && !billId.equals(reg.getBillId())) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
+        var bill = registrationBill(reg);
+        if ("CANCELLED".equals(bill.get("billStatus"))) throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+        BigDecimal due = decimal(bill, "payableAmount").subtract(decimal(bill, "paidAmount"));
+        if (due.signum() > 0 && hasRefund(reg.getBillId())) {
+            throw new BusinessException(ErrorCode.REGISTRATION_PAYMENT_REQUIRED);
+        }
+        if (due.signum() > 0) {
+            requireResponse(operationsClient.payBill(reg.getBillId(), Map.of(
+                    "amount", due.toPlainString(), "payMethod", "CASH", "idempotencyKey", UUID.randomUUID().toString())));
+            bill = registrationBill(reg);
+        }
+        if (!"SETTLED".equals(bill.get("billStatus"))) throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         reg.setPayStatus("PAID");
         reg.setPayTime(LocalDateTime.now());
         if (billId != null) {
@@ -211,16 +231,23 @@ public class RegistrationServiceImpl implements RegistrationService {
     @Override
     @Transactional
     public void refund(Long id, String reason) {
-        Registration reg = registrationMapper.selectById(id);
+        Registration reg = registrationMapper.selectByIdForUpdate(id);
         if (reg == null || reg.getDeleted() != 0) {
             throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
         }
         if ("CANCELLED".equals(reg.getRegStatus())) {
             throw new BusinessException(ErrorCode.REGISTRATION_CANCELLED);
         }
-        if (!"PAID".equals(reg.getPayStatus())) {
+        requirePlannedEncounter(reg);
+        var bill = registrationBill(reg);
+        BigDecimal paid = decimal(bill, "paidAmount");
+        if (paid.signum() > 0) {
+            requireResponse(operationsClient.refundBill(reg.getBillId(), Map.of("amount", paid.toPlainString(),
+                    "reason", cancellationReason(reason), "idempotencyKey", UUID.randomUUID().toString())));
+        } else if (!hasRefund(reg.getBillId())) {
             throw new BusinessException(ErrorCode.REGISTRATION_PAYMENT_REQUIRED);
         }
+        requireResponse(operationsClient.voidBill(reg.getBillId(), Map.of("reason", cancellationReason(reason))));
         reg.setPayStatus("REFUNDED");
         reg.setRegStatus("CANCELLED");
         reg.setCancelReason(reason);
@@ -229,6 +256,93 @@ public class RegistrationServiceImpl implements RegistrationService {
 
         quotaManager.release(reg.getScheduleId());
         log.info("Registration refunded: id={}, reason={}", id, reason);
+    }
+
+    @Override
+    @Transactional
+    public void syncBilling(Long id) {
+        Registration reg = registrationMapper.selectByIdForUpdate(id);
+        if (reg == null || !"ACTIVE".equals(reg.getRegStatus())) return;
+        var bill = registrationBill(reg);
+        if ("CANCELLED".equals(bill.get("billStatus"))
+                || (decimal(bill, "paidAmount").signum() == 0 && hasRefund(reg.getBillId()))) {
+            requirePlannedEncounter(reg);
+            if (!"CANCELLED".equals(bill.get("billStatus"))) {
+                requireResponse(operationsClient.voidBill(reg.getBillId(), Map.of("reason", "挂号费用已全额退回")));
+            }
+            reg.setPayStatus(hasRefund(reg.getBillId()) ? "REFUNDED" : "UNPAID");
+            reg.setRegStatus("CANCELLED");
+            reg.setCancelReason("收费账单已退费或作废");
+            reg.setCancelTime(LocalDateTime.now());
+            quotaManager.release(reg.getScheduleId());
+        } else {
+            boolean settled = "SETTLED".equals(bill.get("billStatus"));
+            reg.setPayStatus(settled ? "PAID" : "UNPAID");
+            if (settled && reg.getPayTime() == null) reg.setPayTime(LocalDateTime.now());
+        }
+        reg.setUpdatedTime(LocalDateTime.now());
+        registrationMapper.updateById(reg);
+    }
+
+    private Encounter requirePlannedEncounter(Registration reg) {
+        LambdaQueryWrapper<Encounter> query = new LambdaQueryWrapper<>();
+        query.eq(Encounter::getRegId, reg.getId()).eq(Encounter::getDeleted, 0);
+        Encounter encounter = encounterMapper.selectOne(query);
+        if (encounter == null || !"PLANNED".equals(encounter.getEncounterStatus())) {
+            throw new BusinessException(ErrorCode.ENCOUNTER_CLOSED);
+        }
+        return encounter;
+    }
+
+    private Map<String, Object> registrationBill(Registration reg) {
+        if (reg.getBillId() == null) {
+            LambdaQueryWrapper<Encounter> query = new LambdaQueryWrapper<>();
+            query.eq(Encounter::getRegId, reg.getId()).eq(Encounter::getDeleted, 0);
+            Encounter encounter = encounterMapper.selectOne(query);
+            if (encounter == null) throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+            Map<String, Object> request = new HashMap<>();
+            request.put("regId", reg.getId());
+            request.put("regNo", reg.getRegNo());
+            request.put("patientId", reg.getPatientId());
+            request.put("deptId", reg.getDeptId());
+            request.put("encounterId", encounter.getId());
+            request.put("amount", reg.getRegFee());
+            var created = requireResponse(operationsClient.createRegistrationBill(request));
+            reg.setBillId(Long.valueOf(created.get("id").toString()));
+        }
+        var bill = requireResponse(operationsClient.getBill(reg.getBillId()));
+        if (!String.valueOf(reg.getPatientId()).equals(String.valueOf(bill.get("patientId")))
+                || decimal(bill, "totalAmount").compareTo(reg.getRegFee()) != 0
+                || !"REGISTRATION".equals(bill.get("sourceType"))
+                || !String.valueOf(reg.getId()).equals(String.valueOf(bill.get("sourceId")))) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
+        return bill;
+    }
+
+    private Map<String, Object> requireResponse(ApiResponse<Map<String, Object>> response) {
+        if (response == null || response.getCode() != 200 || response.getData() == null) {
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+        return response.getData();
+    }
+
+    private BigDecimal decimal(Map<String, Object> bill, String field) {
+        Object value = bill.get(field);
+        if (value == null) throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        return new BigDecimal(value.toString());
+    }
+
+    private boolean hasRefund(Long billId) {
+        var response = operationsClient.listTransactions(billId);
+        if (response == null || response.getCode() != 200 || response.getData() == null) {
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+        return response.getData().stream().anyMatch(transaction -> "REFUND".equals(transaction.get("transactionType")));
+    }
+
+    private String cancellationReason(String reason) {
+        return StringUtils.hasText(reason) ? reason.trim() : "窗口取消挂号";
     }
 
     @Override

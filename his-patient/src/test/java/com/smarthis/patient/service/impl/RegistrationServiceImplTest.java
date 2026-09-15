@@ -89,7 +89,7 @@ class RegistrationServiceImplTest {
         registration.setDeleted(0);
         registration.setPayStatus("PAID");
         registration.setRegStatus("ACTIVE");
-        when(registrationMapper.selectById(11L)).thenReturn(registration);
+        when(registrationMapper.selectByIdForUpdate(11L)).thenReturn(registration);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> service.cancel(11L, "患者取消"));
@@ -104,12 +104,106 @@ class RegistrationServiceImplTest {
         registration.setDeleted(0);
         registration.setPayStatus("UNPAID");
         registration.setRegStatus("ACTIVE");
-        when(registrationMapper.selectById(12L)).thenReturn(registration);
+        when(registrationMapper.selectByIdForUpdate(12L)).thenReturn(registration);
+        registration.setPatientId(10L);
+        registration.setBillId(91L);
+        registration.setRegFee(new BigDecimal("12.50"));
+        Encounter planned = new Encounter();
+        planned.setEncounterStatus("PLANNED");
+        when(encounterMapper.selectOne(any())).thenReturn(planned);
+        when(operationsClient.getBill(91L)).thenReturn(ApiResponse.ok(bill(12L, "0", "UNSETTLED")));
+        when(operationsClient.listTransactions(91L)).thenReturn(ApiResponse.ok(java.util.List.of()));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> service.refund(12L, "患者退号"));
 
         assertEquals(ErrorCode.REGISTRATION_PAYMENT_REQUIRED.getCode(), exception.getCode());
+    }
+
+    @Test
+    void recordsRealPaymentBeforeMarkingPaidAndRetriesWithoutDoubleCharging() {
+        Registration reg = registration(81L);
+        when(registrationMapper.selectByIdForUpdate(81L)).thenReturn(reg);
+        when(operationsClient.getBill(91L)).thenReturn(ApiResponse.ok(bill(81L, "0", "UNSETTLED")),
+                ApiResponse.ok(bill(81L, "12.50", "SETTLED")));
+        when(operationsClient.payBill(org.mockito.ArgumentMatchers.eq(91L), any())).thenReturn(ApiResponse.ok(Map.of("id", 101L)));
+        when(operationsClient.listTransactions(91L)).thenReturn(ApiResponse.ok(java.util.List.of()));
+        service.markPaid(81L, null);
+        service.markPaid(81L, null);
+        assertEquals("PAID", reg.getPayStatus());
+        org.mockito.Mockito.verify(operationsClient).payBill(org.mockito.ArgumentMatchers.eq(91L), org.mockito.ArgumentMatchers.argThat(request -> "12.50".equals(request.get("amount"))));
+    }
+
+    @Test
+    void paymentFailureLeavesRegistrationUnpaid() {
+        Registration reg = registration(81L);
+        when(registrationMapper.selectByIdForUpdate(81L)).thenReturn(reg);
+        when(operationsClient.getBill(91L)).thenReturn(ApiResponse.ok(bill(81L, "0", "UNSETTLED")));
+        when(operationsClient.payBill(org.mockito.ArgumentMatchers.eq(91L), any())).thenThrow(new RuntimeException("timeout"));
+        when(operationsClient.listTransactions(91L)).thenReturn(ApiResponse.ok(java.util.List.of()));
+        assertThrows(RuntimeException.class, () -> service.markPaid(81L, null));
+        assertEquals("UNPAID", reg.getPayStatus());
+        org.mockito.Mockito.verify(registrationMapper, org.mockito.Mockito.never()).updateById(any(Registration.class));
+    }
+
+    @Test
+    void cashierSettlementBackwritesAndFullRefundReleasesQuotaOnlyOnce() {
+        Registration reg = registration(81L);
+        when(registrationMapper.selectByIdForUpdate(81L)).thenReturn(reg);
+        when(operationsClient.getBill(91L)).thenReturn(ApiResponse.ok(bill(81L, "12.50", "SETTLED")),
+                ApiResponse.ok(bill(81L, "0", "UNSETTLED")));
+        Encounter encounter = new Encounter();
+        encounter.setEncounterStatus("PLANNED");
+        when(encounterMapper.selectOne(any())).thenReturn(encounter);
+        when(operationsClient.listTransactions(91L)).thenReturn(ApiResponse.ok(java.util.List.of(Map.of("transactionType", "REFUND"))));
+        when(operationsClient.voidBill(org.mockito.ArgumentMatchers.eq(91L), any())).thenReturn(ApiResponse.ok(Map.of("id", 91L)));
+        service.syncBilling(81L);
+        assertEquals("PAID", reg.getPayStatus());
+        service.syncBilling(81L);
+        service.syncBilling(81L);
+        assertEquals("REFUNDED", reg.getPayStatus());
+        assertEquals("CANCELLED", reg.getRegStatus());
+        org.mockito.Mockito.verify(quotaManager).release(20L);
+    }
+
+    @Test
+    void rejectsAnotherRegistrationsBillBeforeRecordingMoney() {
+        Registration reg = registration(81L);
+        when(registrationMapper.selectByIdForUpdate(81L)).thenReturn(reg);
+        when(operationsClient.getBill(91L)).thenReturn(ApiResponse.ok(bill(99L, "0", "UNSETTLED")));
+        assertThrows(BusinessException.class, () -> service.markPaid(81L, null));
+        org.mockito.Mockito.verify(operationsClient, org.mockito.Mockito.never()).payBill(any(), any());
+    }
+
+    @Test
+    void cancellationRefusesPartiallyPaidLedgerEvenWhenLocalStatusIsStale() {
+        Registration reg = registration(81L);
+        when(registrationMapper.selectByIdForUpdate(81L)).thenReturn(reg);
+        Encounter encounter = new Encounter();
+        encounter.setEncounterStatus("PLANNED");
+        when(encounterMapper.selectOne(any())).thenReturn(encounter);
+        when(operationsClient.getBill(91L)).thenReturn(ApiResponse.ok(bill(81L, "5", "PARTIAL")));
+        assertThrows(BusinessException.class, () -> service.cancel(81L, "取消"));
+        org.mockito.Mockito.verifyNoInteractions(quotaManager);
+        org.mockito.Mockito.verify(operationsClient, org.mockito.Mockito.never()).voidBill(any(), any());
+    }
+
+    private Registration registration(Long id) {
+        Registration reg = new Registration();
+        reg.setId(id);
+        reg.setDeleted(0);
+        reg.setPatientId(10L);
+        reg.setScheduleId(20L);
+        reg.setBillId(91L);
+        reg.setRegFee(new BigDecimal("12.50"));
+        reg.setRegStatus("ACTIVE");
+        reg.setPayStatus("UNPAID");
+        return reg;
+    }
+
+    private Map<String, Object> bill(Long regId, String paid, String status) {
+        return Map.of("id", 91L, "patientId", 10L, "sourceType", "REGISTRATION", "sourceId", regId,
+                "totalAmount", "12.50", "payableAmount", "12.50", "paidAmount", paid, "billStatus", status);
     }
 
     @Test

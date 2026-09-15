@@ -48,4 +48,8 @@ export const clinicalApi = {
   async cancelOrder(id: number, reason: string) {
     await http.put<ApiResponse<void>>(`/clinical/orders/${id}/cancel`, { reason })
   },
+  async submitOrder(id: number) {
+    const response = await http.put<ApiResponse<ClinicalOrder>>(`/clinical/orders/${id}/submit`)
+    return response.data.data
+  },
 }

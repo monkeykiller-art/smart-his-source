@@ -52,4 +52,10 @@ describe('clinicalApi', () => {
     expect(http.post).toHaveBeenCalledWith('/clinical/orders', request)
     expect(http.put).toHaveBeenCalledWith('/clinical/orders/3/cancel', { reason: '医生撤销' })
   })
+
+  it('submits an order and returns its linked bill', async () => {
+    vi.mocked(http.put).mockResolvedValue({ data: { code: 200, data: { id: 3, billId: 91, orderStatus: 'SUBMITTED' } } })
+    await expect(clinicalApi.submitOrder(3)).resolves.toMatchObject({ billId: 91, orderStatus: 'SUBMITTED' })
+    expect(http.put).toHaveBeenCalledWith('/clinical/orders/3/submit')
+  })
 })
