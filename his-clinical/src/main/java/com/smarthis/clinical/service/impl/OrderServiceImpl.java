@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +30,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
+
+    private static final int MONEY_SCALE = 4;
 
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
@@ -53,7 +56,7 @@ public class OrderServiceImpl implements OrderService {
                     || item.getQuantity() == null || item.getQuantity().signum() <= 0) {
                 throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
             }
-            var amount = item.getUnitPrice().multiply(item.getQuantity());
+            var amount = item.getUnitPrice().multiply(item.getQuantity()).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
             if (amount.scale() > 4 || amount.precision() - amount.scale() > 14) {
                 throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
             }

@@ -40,6 +40,21 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void acceptsDatabaseMoneyScaleWithoutRejectingAValidOrder() {
+        Order order = order("DRAFT");
+        when(orders.selectByIdForUpdate(81L)).thenReturn(order);
+        OrderItem item = new OrderItem();
+        item.setQuantity(new BigDecimal("1.0000"));
+        item.setUnitPrice(new BigDecimal("1.0000"));
+        when(items.selectList(any())).thenReturn(List.of(item));
+
+        service.submit(81L);
+
+        assertEquals("SUBMITTED", order.getOrderStatus());
+        verify(orders).updateById(order);
+    }
+
+    @Test
     void doesNotCancelOrderIfBillCannotBeVoided() {
         Order order = order("SUBMITTED");
         order.setBillId(91L);

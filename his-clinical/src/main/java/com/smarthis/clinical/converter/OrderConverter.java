@@ -12,6 +12,7 @@ import com.smarthis.clinical.entity.OrderTemplate;
 import com.smarthis.clinical.entity.OrderTemplateItem;
 
 import java.util.List;
+import java.math.RoundingMode;
 
 public final class OrderConverter {
 
@@ -60,7 +61,7 @@ public final class OrderConverter {
         item.setRemark(req.getRemark());
         item.setItemStatus("ACTIVE");
         if (req.getUnitPrice() != null && item.getQuantity() != null) {
-            item.setAmount(req.getUnitPrice().multiply(item.getQuantity()));
+            item.setAmount(req.getUnitPrice().multiply(item.getQuantity()).setScale(4, RoundingMode.HALF_UP));
         }
         return item;
     }
