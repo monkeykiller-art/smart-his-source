@@ -31,14 +31,7 @@ class AllSchemasMigrationTest {
         SERVICE_SCHEMAS.put("his-auth", "his_auth");
         SERVICE_SCHEMAS.put("his-patient", "his_patient");
         SERVICE_SCHEMAS.put("his-clinical", "his_clinical");
-        SERVICE_SCHEMAS.put("his-resource", "his_resource");
         SERVICE_SCHEMAS.put("his-operations", "his_operations");
-        SERVICE_SCHEMAS.put("his-pharma", "his_pharma");
-        SERVICE_SCHEMAS.put("his-collaboration", "his_collab");
-        SERVICE_SCHEMAS.put("his-cdss", "his_cdss");
-        SERVICE_SCHEMAS.put("his-drg", "his_drg");
-        SERVICE_SCHEMAS.put("his-emergency", "his_emergency");
-        SERVICE_SCHEMAS.put("his-platform", "his_platform");
     }
 
     private PostgreSQLContainer postgres;
@@ -104,7 +97,7 @@ class AllSchemasMigrationTest {
             }
         }
 
-        assertEquals(19, discoveredMigrationCount,
+        assertEquals(10, discoveredMigrationCount,
                 "Every checked-in Flyway migration must be covered by this test");
     }
 

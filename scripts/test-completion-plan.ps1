@@ -9,19 +9,12 @@ if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
 
 $content = Get-Content -LiteralPath $planPath -Raw -Encoding UTF8
 $requiredMarkers = @(
-    '2026-09-14',
-    '625',
-    '18',
-    '23',
+    '2026-09-15',
     'PostgreSQL 16',
     'clean verify',
-    'MVP',
-    'ICD-10',
-    'RBAC',
-    'OpenAPI',
-    'OpenTelemetry',
-    '657.69 kB',
-    'docker compose stop'
+    'npm test',
+    'npm run lint',
+    'npm run build'
 )
 
 foreach ($marker in $requiredMarkers) {
@@ -31,9 +24,9 @@ foreach ($marker in $requiredMarkers) {
 }
 
 $requiredModules = @(
-    'his-auth', 'his-patient', 'his-clinical', 'his-resource',
-    'his-operations', 'his-pharma', 'his-platform', 'his-cdss',
-    'his-emergency', 'his-collaboration', 'his-drg'
+    'his-common', 'his-gateway', 'his-auth', 'his-patient',
+    'his-clinical', 'his-operations', 'his-migration-tests',
+    'smart-his-frontend'
 )
 
 foreach ($module in $requiredModules) {
@@ -42,9 +35,9 @@ foreach ($module in $requiredModules) {
     }
 }
 
-$stageHeadingCount = ([regex]::Matches($content, '^### P[0-7]', 'Multiline')).Count
-if ($stageHeadingCount -ne 8) {
-    throw "Expected eight delivery stages, found $stageHeadingCount."
+$stageHeadingCount = ([regex]::Matches($content, '^### M[0-4]', 'Multiline')).Count
+if ($stageHeadingCount -ne 5) {
+    throw "Expected five delivery stages, found $stageHeadingCount."
 }
 
 $acceptanceMarker = -join @(
@@ -54,19 +47,9 @@ $acceptanceMarker = -join @(
     [char]0x51C6,
     [char]0xFF1A
 )
-$acceptanceHeadingCount = ([regex]::Matches($content, [regex]::Escape($acceptanceMarker))).Count
-if ($acceptanceHeadingCount -ne 8) {
+$acceptanceHeadingCount = ([regex]::Matches($content, '^' + [regex]::Escape($acceptanceMarker), 'Multiline')).Count
+if ($acceptanceHeadingCount -ne 5) {
     throw "Every delivery stage must define acceptance criteria; found $acceptanceHeadingCount."
 }
 
-$milestoneCount = ([regex]::Matches($content, '\| M[0-7] ')).Count
-if ($milestoneCount -ne 8) {
-    throw "Expected eight delivery milestones, found $milestoneCount."
-}
-
-$sectionHeadingCount = ([regex]::Matches($content, '^## ', 'Multiline')).Count
-if ($sectionHeadingCount -ne 9) {
-    throw "Expected nine top-level plan sections, found $sectionHeadingCount."
-}
-
-Write-Host 'PROJECT_COMPLETION_PLAN.md structure validation passed.'
+Write-Host 'PROJECT_COMPLETION_PLAN.md basic outpatient scope validation passed.'

@@ -79,7 +79,7 @@ button, input { font: inherit; }
 .quick-entry small { margin-top: 4px; color: #667085; font-size: 12px; }
 .quick-entry-arrow { color: #98a2b3; font-size: 22px; }
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
-.metric-card, .service-card, .patient-table-card, .clinical-patient-card, .clinical-workspace-card, .placeholder-card { border: 1px solid #d9dee5; box-shadow: none; }
+.metric-card, .service-card, .patient-table-card, .clinical-patient-card, .clinical-workspace-card { border: 1px solid #d9dee5; box-shadow: none; }
 .metric-label { color: #667085; font-size: 12px; }
 .metric-value { margin: 5px 0 1px; color: #1d2939; font-size: 25px; font-weight: 600; }
 .metric-value small { color: #667085; font-size: 12px; font-weight: 400; }
@@ -93,7 +93,6 @@ button, input { font: inherit; }
 .service-row strong, .service-row small { display: block; }
 .service-row strong { color: #344054; font-size: 13px; }
 .service-row small { margin-top: 2px; color: #98a2b3; font-size: 10px; }
-.placeholder-card { min-height: 300px; display: grid; place-items: center; text-align: center; }
 
 /* Business pages */
 .table-toolbar { display: flex; gap: 8px; width: min(600px, 100%); margin-bottom: 14px; }
@@ -214,7 +213,7 @@ body, .ant-typography, .ant-form, .ant-table, .ant-menu, .ant-input, .ant-select
 .quick-entry small { margin-top: 2px; color: #6a7e8e; font-size: 10px; }
 .quick-entry-arrow { font-size: 17px; }
 .metric-grid { gap: 6px; margin-bottom: 8px; }
-.metric-card, .service-card, .patient-table-card, .clinical-patient-card, .clinical-workspace-card, .placeholder-card,
+.metric-card, .service-card, .patient-table-card, .clinical-patient-card, .clinical-workspace-card,
 .registration-metrics .ant-card { border: 1px solid #9dadba; border-radius: 1px; box-shadow: inset 0 1px #fff, 1px 1px rgba(54,72,87,.12); }
 .ant-card .ant-card-head { min-height: 31px; padding: 0 9px; background: linear-gradient(#edf3f7, #d5e0e9); border-bottom: 1px solid #a7b7c4; }
 .ant-card .ant-card-head-title { padding: 6px 0; color: #294b67; font-size: 12px; font-weight: 700; }

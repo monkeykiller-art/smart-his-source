@@ -15,6 +15,25 @@ import static org.junit.jupiter.api.Assertions.fail;
 class BuildConfigurationTest {
 
     @Test
+    void reactorMustContainOnlyBasicOutpatientModules() throws IOException {
+        Path root = findProjectRoot();
+        String parentPom = Files.readString(root.resolve("pom.xml"));
+
+        for (String module : List.of(
+                "his-common", "his-gateway", "his-auth", "his-patient",
+                "his-clinical", "his-operations", "his-migration-tests")) {
+            assertTrue(parentPom.contains("<module>" + module + "</module>"),
+                    module + " must remain in the basic outpatient reactor");
+        }
+        for (String removedModule : List.of(
+                "his-resource", "his-collaboration", "his-pharma", "his-cdss",
+                "his-drg", "his-emergency", "his-platform")) {
+            assertFalse(parentPom.contains("<module>" + removedModule + "</module>"),
+                    removedModule + " must not remain in the basic outpatient reactor");
+        }
+    }
+
+    @Test
     void parentPomMustNotUseSystemScopedDependencies() throws IOException {
         Path root = findProjectRoot();
         String parentPom = Files.readString(root.resolve("pom.xml"));
@@ -104,8 +123,7 @@ class BuildConfigurationTest {
 
         List<String> serviceModules = List.of(
                 "his-gateway", "his-auth", "his-patient", "his-clinical",
-                "his-resource", "his-operations", "his-collaboration", "his-pharma",
-                "his-cdss", "his-drg", "his-emergency", "his-platform");
+                "his-operations");
         for (String module : serviceModules) {
             String modulePom = Files.readString(root.resolve(module).resolve("pom.xml"));
             for (String artifact : runtimeArtifacts) {

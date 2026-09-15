@@ -1,5 +1,0 @@
-spring:
-  cloud:
-    nacos:
-      config:
-        server-addr: nacos.his-infra.svc.cluster.local:8848

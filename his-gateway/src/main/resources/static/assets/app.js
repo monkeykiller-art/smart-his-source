@@ -1,14 +1,11 @@
-const modules=[
-  ['总览','⌂'],['患者服务','患'],['临床诊疗','临'],['资源保障','资'],['运营管理','营'],['区域协同','协'],['系统治理','治']
-];
+const modules=[['总览','⌂'],['患者服务','患'],['门诊挂号','号'],['临床诊疗','临'],['收费管理','费']];
 const domains=[
-  ['患','患者服务','预约、挂号、患者主索引与全景视图'],
-  ['临','临床诊疗','门住院工作站、医嘱、病历与危急值'],
-  ['资','资源保障','药品、耗材、床位与执行资源协同'],
-  ['营','运营管理','收费结算、医保 DRG 与经营分析'],
-  ['协','区域协同','转诊、远程医疗与标准化数据交换']
+  ['患','患者服务','患者建档、查询与资料维护'],
+  ['号','门诊挂号','科室、医生、排班与挂号处理'],
+  ['临','临床诊疗','病历、诊断、医嘱与接诊归档'],
+  ['费','收费管理','门诊账单、收款、退费与作废']
 ];
-const services=['auth','patient','clinical','resource','operations','collaboration','pharma','cdss','drg','emergency','platform'];
+const services=['auth','patient','clinical','operations'];
 
 document.querySelector('#navigation').innerHTML=modules.map((m,i)=>`<button class="nav-item ${i===0?'active':''}"><b>${m[1]}</b>${m[0]}</button>`).join('');
 document.querySelector('#domains').innerHTML=domains.map(d=>`<article class="domain"><div class="domain-icon">${d[0]}</div><h3>${d[1]}</h3><p>${d[2]}</p></article>`).join('');

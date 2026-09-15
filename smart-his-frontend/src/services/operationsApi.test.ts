@@ -49,36 +49,4 @@ describe('operationsApi', () => {
     expect(http.post).toHaveBeenNthCalledWith(3, '/operations/bills/12/void', { reason: '重复开单' })
     expect(http.get).toHaveBeenCalledWith('/operations/bills/12/transactions')
   })
-
-  it('calls the day-account handoff and inpatient settlement endpoints', async () => {
-    const page = { records: [], total: 0, page: 1, size: 20, totalPages: 0 }
-    const account = { id: 5, accountNo: 'DZ001', accountStatus: 'PENDING' }
-    const preview = { patientId: 12, admissionId: 44, totalAmount: 100, insuranceAmount: 20, depositAmount: 30, selfPayAmount: 50, depositBalance: 60 }
-    const settlement = { id: 9, settleNo: 'JS001', patientId: 12, admissionId: 44, settleStatus: 'SETTLED' }
-    vi.mocked(http.get)
-      .mockResolvedValueOnce({ data: { code: 200, message: 'success', data: page } })
-      .mockResolvedValueOnce({ data: { code: 200, message: 'success', data: page } })
-      .mockResolvedValueOnce({ data: { code: 200, message: 'success', data: preview } })
-    vi.mocked(http.post)
-      .mockResolvedValueOnce({ data: { code: 200, message: 'success', data: account } })
-      .mockResolvedValueOnce({ data: { code: 200, message: 'success', data: account } })
-      .mockResolvedValueOnce({ data: { code: 200, message: 'success', data: account } })
-      .mockResolvedValueOnce({ data: { code: 200, message: 'success', data: settlement } })
-
-    await expect(operationsApi.queryAccounts({ page: 1, size: 20, cashierId: '8' })).resolves.toEqual(page)
-    await expect(operationsApi.generateAccount('8', '张收费员', '2026-09-14')).resolves.toEqual(account)
-    await operationsApi.submitAccount(5)
-    await operationsApi.receiveAccount(5, '9')
-    await expect(operationsApi.querySettlements({ page: 1, size: 20 })).resolves.toEqual(page)
-    await expect(operationsApi.previewSettlement(44)).resolves.toEqual(preview)
-    await expect(operationsApi.createSettlement({ patientId: 12, admissionId: 44, settleType: 'FINAL', payMethod: 'CASH', cashierId: '8', cashierName: '张收费员' })).resolves.toEqual(settlement)
-
-    expect(http.get).toHaveBeenCalledWith('/operations/accounts', { params: { page: 1, size: 20, cashierId: '8' } })
-    expect(http.post).toHaveBeenNthCalledWith(1, '/operations/accounts/generate', null, { params: { cashierId: '8', cashierName: '张收费员', accountDate: '2026-09-14' } })
-    expect(http.post).toHaveBeenNthCalledWith(2, '/operations/accounts/5/submit')
-    expect(http.post).toHaveBeenNthCalledWith(3, '/operations/accounts/5/receive', null, { params: { receiverId: '9' } })
-    expect(http.get).toHaveBeenCalledWith('/operations/settlements', { params: { page: 1, size: 20 } })
-    expect(http.get).toHaveBeenCalledWith('/operations/settlements/preview/44')
-    expect(http.post).toHaveBeenNthCalledWith(4, '/operations/settlements', { patientId: 12, admissionId: 44, settleType: 'FINAL', payMethod: 'CASH', cashierId: '8', cashierName: '张收费员' })
-  })
 })

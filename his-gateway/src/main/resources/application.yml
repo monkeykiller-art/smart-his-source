@@ -45,25 +45,11 @@ spring:
             - Path=/api/clinical/health
           filters:
             - SetPath=/health
-        - id: his-resource-health
-          uri: lb://his-resource
-          order: -1
-          predicates:
-            - Path=/api/resource/health
-          filters:
-            - SetPath=/health
         - id: his-operations-health
           uri: lb://his-operations
           order: -1
           predicates:
             - Path=/api/operations/health
-          filters:
-            - SetPath=/health
-        - id: his-collaboration-health
-          uri: lb://his-collaboration
-          order: -1
-          predicates:
-            - Path=/api/collaboration/health
           filters:
             - SetPath=/health
         - id: his-auth
@@ -78,38 +64,10 @@ spring:
           uri: lb://his-clinical
           predicates:
             - Path=/api/clinical/**
-        - id: his-resource
-          uri: lb://his-resource
-          predicates:
-            - Path=/api/resource/**
         - id: his-operations
           uri: lb://his-operations
           predicates:
             - Path=/api/operations/**
-        - id: his-collaboration
-          uri: lb://his-collaboration
-          predicates:
-            - Path=/api/collaboration/**
-        - id: his-pharma
-          uri: lb://his-pharma
-          predicates:
-            - Path=/api/pharma/**
-        - id: his-cdss
-          uri: lb://his-cdss
-          predicates:
-            - Path=/api/cdss/**
-        - id: his-drg
-          uri: lb://his-drg
-          predicates:
-            - Path=/api/drg/**
-        - id: his-emergency
-          uri: lb://his-emergency
-          predicates:
-            - Path=/api/emergency/**
-        - id: his-platform
-          uri: lb://his-platform
-          predicates:
-            - Path=/api/platform/**
 
 his:
   jwt:

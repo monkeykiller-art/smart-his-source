@@ -13,17 +13,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GatewayRouteConfigurationTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"auth", "patient", "clinical", "resource", "operations", "collaboration"})
-    void legacyHealthEndpointIsAvailableThroughServiceApiPrefix(String service) {
-        InputStream yamlStream = getClass().getResourceAsStream("/application.yml");
-        assertThat(yamlStream).isNotNull();
+    @ValueSource(strings = {"resource", "collaboration", "pharma", "cdss", "drg", "emergency", "platform"})
+    void extensionServiceRoutesAreAbsent(String service) {
+        List<Map<String, Object>> routes = routes();
 
-        Map<String, Object> root = new Yaml().load(yamlStream);
-        Map<String, Object> spring = child(root, "spring");
-        Map<String, Object> cloud = child(spring, "cloud");
-        Map<String, Object> gateway = child(cloud, "gateway");
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> routes = (List<Map<String, Object>>) gateway.get("routes");
+        assertThat(routes).noneMatch(route -> ("his-" + service).equals(route.get("id"))
+                || ("his-" + service + "-health").equals(route.get("id")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"auth", "patient", "clinical", "operations"})
+    void legacyHealthEndpointIsAvailableThroughServiceApiPrefix(String service) {
+        List<Map<String, Object>> routes = routes();
 
         Map<String, Object> healthRoute = routes.stream()
                 .filter(route -> ("his-" + service + "-health").equals(route.get("id")))
@@ -34,6 +35,20 @@ class GatewayRouteConfigurationTest {
         assertThat(healthRoute.get("order")).isEqualTo(-1);
         assertThat(healthRoute.get("predicates")).isEqualTo(List.of("Path=/api/" + service + "/health"));
         assertThat(healthRoute.get("filters")).isEqualTo(List.of("SetPath=/health"));
+    }
+
+    private List<Map<String, Object>> routes() {
+        InputStream yamlStream = getClass().getResourceAsStream("/application.yml");
+        assertThat(yamlStream).isNotNull();
+
+        Map<String, Object> root = new Yaml().load(yamlStream);
+        Map<String, Object> spring = child(root, "spring");
+        Map<String, Object> cloud = child(spring, "cloud");
+        Map<String, Object> gateway = child(cloud, "gateway");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> routes = (List<Map<String, Object>>) gateway.get("routes");
+
+        return routes;
     }
 
     @SuppressWarnings("unchecked")

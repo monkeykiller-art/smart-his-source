@@ -7,7 +7,6 @@ import { OperationsPage } from './OperationsPage'
 vi.mock('@/services/operationsApi', () => ({ operationsApi: {
   queryBills: vi.fn(), getBill: vi.fn(), listBillItems: vi.fn(), listTransactions: vi.fn(),
   payBill: vi.fn(), refundBill: vi.fn(), voidBill: vi.fn(),
-  queryAccounts: vi.fn(), generateAccount: vi.fn(), submitAccount: vi.fn(), receiveAccount: vi.fn(), querySettlements: vi.fn(), previewSettlement: vi.fn(), createSettlement: vi.fn(),
 } }))
 
 describe('OperationsPage', () => {

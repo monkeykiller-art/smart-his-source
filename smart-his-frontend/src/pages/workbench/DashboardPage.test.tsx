@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { quickActions } from './dashboardConfig'
+import { dashboardServices, quickActions } from './dashboardConfig'
 
 describe('dashboard quick actions', () => {
   it('links the core outpatient workflow in operational order', () => {
@@ -8,5 +8,9 @@ describe('dashboard quick actions', () => {
       '/patient/registrations',
       '/clinical',
     ])
+  })
+
+  it('monitors only services required by the basic outpatient workflow', () => {
+    expect(dashboardServices).toEqual(['auth', 'patient', 'clinical', 'operations'])
   })
 })

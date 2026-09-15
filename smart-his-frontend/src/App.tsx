@@ -6,7 +6,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoginPage } from '@/pages/auth/LoginPage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { DashboardPage } from '@/pages/workbench/DashboardPage'
 import { ProtectedRoute } from '@/router/ProtectedRoute'
 
@@ -49,9 +48,7 @@ export default function App() {
                 <Route path="patient" element={<Suspense fallback={<Spin fullscreen tip="正在加载患者服务" />}><PatientPage /></Suspense>} />
                 <Route path="patient/registrations" element={<Suspense fallback={<Spin fullscreen tip="正在加载挂号服务" />}><RegistrationPage /></Suspense>} />
                 <Route path="clinical" element={<Suspense fallback={<Spin fullscreen tip="正在加载临床服务" />}><ClinicalPage /></Suspense>} />
-                <Route path="resource" element={<PlaceholderPage title="资源保障" />} />
                 <Route path="operations" element={<Suspense fallback={<Spin fullscreen tip="正在加载运营服务" />}><OperationsPage /></Suspense>} />
-                <Route path="pharma" element={<PlaceholderPage title="药事管理" />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

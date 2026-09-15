@@ -3,7 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $projectRoot '.env'
-$modules = @('his-auth','his-patient','his-clinical','his-resource','his-operations','his-collaboration','his-pharma','his-cdss','his-drg','his-emergency','his-platform','his-gateway')
+$modules = @('his-auth','his-patient','his-clinical','his-operations','his-gateway')
 $runDir = Join-Path $projectRoot '.run'
 
 if (-not (Test-Path -LiteralPath $envFile)) {

@@ -1,12 +1,11 @@
 import { EyeOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Card, Descriptions, Drawer, Empty, Input, InputNumber, Modal, Select, Space, Statistic, Table, Tabs, Tag } from 'antd'
+import { Alert, Button, Card, Descriptions, Drawer, Empty, Input, InputNumber, Modal, Select, Space, Statistic, Table, Tag } from 'antd'
 import type { TableColumnsType } from 'antd'
 import dayjs from 'dayjs'
 import { useState } from 'react'
 import { operationsApi } from '@/services/operationsApi'
 import type { Bill, BillItem, BillPaymentRequest, BillQuery, BillRefundRequest, BillStatus, BillTransaction, VisitType } from '@/types/operations'
-import { FinanceOperationsTabs } from './FinanceOperationsTabs'
 
 const billStatusMeta: Record<BillStatus, { label: string; color: string }> = {
   UNSETTLED: { label: '待缴费', color: 'gold' },
@@ -201,7 +200,7 @@ export function OperationsPage() {
     { title: '时间', dataIndex: 'transactionTime', width: 155, render: (value) => value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—' },
   ]
 
-  return <Tabs defaultActiveKey="bills" items={[{ key: 'bills', label: '账单收退费', children: <>
+  return <>
     <div className="page-heading patient-heading">
       <div><h1>收费与账单</h1><p>查询患者账单、应收状态及费用项目明细。</p></div>
       <Button icon={<ReloadOutlined />} onClick={() => bills.refetch()}>刷新账单</Button>
@@ -270,5 +269,5 @@ export function OperationsPage() {
       <label htmlFor="bill-void-reason">作废原因</label>
       <Input id="bill-void-reason" maxLength={240} value={voidReason} onChange={(event) => setVoidReason(event.target.value)} />
     </Modal>
-  </> }, { key: 'finance', label: '日结与结算', children: <FinanceOperationsTabs /> }]} />
+  </>
 }

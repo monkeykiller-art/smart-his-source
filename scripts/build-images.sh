@@ -6,13 +6,13 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 source "$SCRIPT_DIR/setup-env.sh"
 
-SERVICES=("his-gateway" "his-auth" "his-patient" "his-clinical" "his-resource" "his-operations" "his-collaboration" "his-pharma" "his-cdss" "his-drg" "his-emergency" "his-platform")
+SERVICES=("his-gateway" "his-auth" "his-patient" "his-clinical" "his-operations")
 
 usage() {
   cat <<'EOF'
 Usage:
   build-images.sh                 Build all modules and all Docker images
-  build-images.sh --module <mod>  Rebuild a single module + its image (e.g. his-pharma)
+  build-images.sh --module <mod>  Rebuild a single module + its image (e.g. his-patient)
   build-images.sh --help          Show this help
 EOF
 }
@@ -21,7 +21,7 @@ EOF
 if [ "${1:-}" = "--module" ]; then
   MODULE="${2:-}"
   if [ -z "$MODULE" ]; then
-    echo "ERROR: --module requires a module name (e.g. --module his-pharma)"
+    echo "ERROR: --module requires a module name (e.g. --module his-patient)"
     usage
     exit 1
   fi
