@@ -97,13 +97,16 @@ class AllSchemasMigrationTest {
             if ("his-auth".equals(service.getKey())) {
                 assertAuthRolePermissionSeedData();
             }
+            if ("his-patient".equals(service.getKey())) {
+                assertUpcomingScheduleSeedData();
+            }
             if ("his-operations".equals(service.getKey())) {
                 assertBillSourceUniqueness();
                 assertBillSourceLockSerializesConcurrentRequests();
             }
         }
 
-        assertEquals(12, discoveredMigrationCount,
+        assertEquals(13, discoveredMigrationCount,
                 "Every checked-in Flyway migration must be covered by this test");
     }
 
@@ -185,6 +188,16 @@ class AllSchemasMigrationTest {
                 WHERE role_permission.role_id = 1
                   AND role_permission.id = permission.id
                 """), "Administrator role-permission IDs must not overlap other role ranges");
+    }
+
+    private void assertUpcomingScheduleSeedData() throws Exception {
+        assertTrue(queryForInt("""
+                SELECT count(*)
+                FROM his_patient.pat_schedule
+                WHERE schedule_date >= CURRENT_DATE
+                  AND schedule_date <= CURRENT_DATE + 90
+                  AND schedule_status = 'ACTIVE'
+                """) > 0, "Patient migration must seed upcoming active schedules");
     }
 
     private int queryForInt(String sql) throws Exception {
