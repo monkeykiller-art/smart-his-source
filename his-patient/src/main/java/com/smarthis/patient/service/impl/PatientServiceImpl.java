@@ -38,6 +38,14 @@ public class PatientServiceImpl implements PatientService {
     @Override
     @Transactional
     public PatientVo create(PatientCreateRequest request) {
+        LambdaQueryWrapper<PatientIdentifier> existingIdentifier = new LambdaQueryWrapper<>();
+        existingIdentifier.eq(PatientIdentifier::getIdType, request.getIdType())
+                .eq(PatientIdentifier::getIdNo, request.getIdNo())
+                .eq(PatientIdentifier::getDeleted, 0);
+        if (identifierMapper.selectCount(existingIdentifier) > 0) {
+            throw new BusinessException(ErrorCode.PATIENT_DUPLICATE);
+        }
+
         Patient patient = PatientConverter.toEntity(request);
         patient.setEmpiNo(bizNoGenerator.next(BizNoType.REGISTRATION).replace("MZ", "EM"));
         patient.setPatientType("NORMAL");

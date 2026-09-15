@@ -31,6 +31,8 @@ public enum ErrorCode {
     REGISTRATION_NOT_FOUND(1006, "registration not found"),
     REGISTRATION_ALREADY_PAID(1007, "registration already paid"),
     REGISTRATION_CANCELLED(1008, "registration already cancelled"),
+    REGISTRATION_DUPLICATE(1017, "patient already has an active registration for this schedule"),
+    REGISTRATION_PAYMENT_REQUIRED(1018, "paid registration must be refunded instead of cancelled"),
     ENCOUNTER_NOT_FOUND(1009, "encounter not found"),
     ENCOUNTER_CLOSED(1010, "encounter is closed"),
     TRIAGE_NOT_FOUND(1011, "triage record not found"),

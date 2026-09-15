@@ -85,6 +85,14 @@ public class RegistrationServiceImpl implements RegistrationService {
         if (!"ACTIVE".equals(schedule.getScheduleStatus())) {
             throw new BusinessException(ErrorCode.SCHEDULE_NO_QUOTA);
         }
+        LambdaQueryWrapper<Registration> duplicateQuery = new LambdaQueryWrapper<>();
+        duplicateQuery.eq(Registration::getPatientId, patient.getId())
+                .eq(Registration::getScheduleId, schedule.getId())
+                .eq(Registration::getRegStatus, "ACTIVE")
+                .eq(Registration::getDeleted, 0);
+        if (registrationMapper.selectCount(duplicateQuery) > 0) {
+            throw new BusinessException(ErrorCode.REGISTRATION_DUPLICATE);
+        }
         quotaManager.acquire(schedule.getId());
 
         // Step 3: generate the registration business number
@@ -101,7 +109,7 @@ public class RegistrationServiceImpl implements RegistrationService {
         reg.setDeptId(schedule.getDeptId());
         reg.setDoctorId(schedule.getDoctorId());
         reg.setVisitSeq(visitSeq);
-        reg.setRegDate(LocalDate.now());
+        reg.setRegDate(schedule.getScheduleDate());
         reg.setTimePeriod(schedule.getTimePeriod());
         reg.setRegFee(schedule.getRegFee());
         reg.setPayStatus("UNPAID");
@@ -166,6 +174,9 @@ public class RegistrationServiceImpl implements RegistrationService {
         if ("CANCELLED".equals(reg.getRegStatus())) {
             throw new BusinessException(ErrorCode.REGISTRATION_CANCELLED);
         }
+        if ("PAID".equals(reg.getPayStatus())) {
+            throw new BusinessException(ErrorCode.REGISTRATION_PAYMENT_REQUIRED);
+        }
         reg.setRegStatus("CANCELLED");
         reg.setCancelReason(reason);
         reg.setCancelTime(LocalDateTime.now());
@@ -203,6 +214,12 @@ public class RegistrationServiceImpl implements RegistrationService {
         Registration reg = registrationMapper.selectById(id);
         if (reg == null || reg.getDeleted() != 0) {
             throw new BusinessException(ErrorCode.REGISTRATION_NOT_FOUND);
+        }
+        if ("CANCELLED".equals(reg.getRegStatus())) {
+            throw new BusinessException(ErrorCode.REGISTRATION_CANCELLED);
+        }
+        if (!"PAID".equals(reg.getPayStatus())) {
+            throw new BusinessException(ErrorCode.REGISTRATION_PAYMENT_REQUIRED);
         }
         reg.setPayStatus("REFUNDED");
         reg.setRegStatus("CANCELLED");
