@@ -21,6 +21,8 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import java.sql.SQLException;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class AllSchemasMigrationTest {
@@ -95,9 +97,12 @@ class AllSchemasMigrationTest {
             if ("his-auth".equals(service.getKey())) {
                 assertAuthRolePermissionSeedData();
             }
+            if ("his-operations".equals(service.getKey())) {
+                assertBillSourceUniqueness();
+            }
         }
 
-        assertEquals(11, discoveredMigrationCount,
+        assertEquals(12, discoveredMigrationCount,
                 "Every checked-in Flyway migration must be covered by this test");
     }
 
@@ -117,6 +122,25 @@ class AllSchemasMigrationTest {
                 resultSet.next();
                 return resultSet.getInt(1);
             }
+        }
+    }
+
+    private void assertBillSourceUniqueness() throws Exception {
+        String sql = """
+                INSERT INTO his_operations.ops_bill
+                    (id, bill_no, patient_id, dept_id, source_type, source_id)
+                VALUES (?, ?, 10, 20, 'REGISTRATION', 81)
+                """;
+        try (Connection connection = DriverManager.getConnection(
+                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, 9001L);
+            statement.setString(2, "BL-M3-1");
+            assertEquals(1, statement.executeUpdate());
+            statement.setLong(1, 9002L);
+            statement.setString(2, "BL-M3-2");
+            SQLException exception = assertThrows(SQLException.class, statement::executeUpdate);
+            assertEquals("23505", exception.getSQLState(), "One registration must not create two bills");
         }
     }
 

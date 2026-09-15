@@ -28,6 +28,10 @@ public class Bill extends BaseEntity {
 
     private Long encounterId;
 
+    private String sourceType;
+
+    private Long sourceId;
+
     private VisitType visitType;
 
     private Long deptId;

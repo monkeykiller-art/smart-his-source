@@ -16,6 +16,7 @@ import com.smarthis.operations.dto.response.BillTransactionVo;
 import com.smarthis.operations.entity.BillTransaction;
 import com.smarthis.operations.entity.FeeItem;
 import com.smarthis.operations.dto.request.BillChargeItemRequest;
+import com.smarthis.operations.dto.request.BillRegistrationRequest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -257,6 +258,58 @@ class BillServiceImplTest {
         fee.setDeleted(0);
         fee.setUnitPrice(new BigDecimal("0.10"));
         return fee;
+    }
+
+    @Test
+    void createsRegistrationBillWithMatchingChargeItemAndSource() {
+        when(billMapper.insert(any(Bill.class))).thenAnswer(invocation -> {
+            Bill bill = invocation.getArgument(0);
+            bill.setId(91L);
+            return 1;
+        });
+        var result = service.createFromRegistration(registrationRequest());
+        assertEquals(91L, result.getId());
+        assertEquals("OUTPATIENT", result.getVisitType());
+        assertEquals(new BigDecimal("12.50"), result.getPayableAmount());
+        assertEquals("UNSETTLED", result.getBillStatus());
+        verify(billItemMapper).insert(argThat((BillItem item) -> item.getBillId().equals(91L)
+                && item.getAmount().compareTo(new BigDecimal("12.50")) == 0
+                && "REGISTRATION".equals(item.getItemClass())));
+        verify(billMapper).insert(argThat((Bill bill) -> "REGISTRATION".equals(bill.getSourceType())
+                && bill.getSourceId().equals(81L)));
+    }
+
+    @Test
+    void replaysRegistrationBillAndRejectsChangedAmountWithoutCreatingAnotherBill() {
+        Bill previous = bill(91L, "12.50", "12.50", BillStatus.SETTLED);
+        previous.setPatientId(10L);
+        previous.setTotalAmount(new BigDecimal("12.50"));
+        when(billMapper.selectOne(any())).thenReturn(previous);
+        assertEquals(91L, service.createFromRegistration(registrationRequest()).getId());
+        BillRegistrationRequest changed = registrationRequest();
+        changed.setAmount(new BigDecimal("13.00"));
+        assertThrows(BusinessException.class, () -> service.createFromRegistration(changed));
+        verify(billMapper, never()).insert(any(Bill.class));
+        verifyNoInteractions(billItemMapper);
+    }
+
+    @Test
+    void rejectsMissingAndNegativeRegistrationAmountBeforeLockOrWrite() {
+        BillRegistrationRequest request = registrationRequest();
+        request.setAmount(null);
+        assertThrows(BusinessException.class, () -> service.createFromRegistration(request));
+        request.setAmount(new BigDecimal("-1"));
+        assertThrows(BusinessException.class, () -> service.createFromRegistration(request));
+        verifyNoInteractions(billMapper, billItemMapper);
+    }
+
+    private BillRegistrationRequest registrationRequest() {
+        BillRegistrationRequest request = new BillRegistrationRequest();
+        request.setRegId(81L);
+        request.setPatientId(10L);
+        request.setEncounterId(82L);
+        request.setAmount(new BigDecimal("12.50"));
+        return request;
     }
 
     private BillChargeItemRequest chargeRequest(BigDecimal quantity) {

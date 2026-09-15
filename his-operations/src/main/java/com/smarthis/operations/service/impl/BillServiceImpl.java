@@ -166,10 +166,47 @@ public class BillServiceImpl implements BillService {
     @Override
     @Transactional
     public BillVo createFromRegistration(BillRegistrationRequest request) {
+        BigDecimal amount = request.getAmount();
+        if (request.getRegId() == null || request.getRegId() <= 0 || amount == null
+                || amount.signum() < 0 || amount.scale() > 4 || amount.precision() - amount.scale() > 14) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
+        billMapper.lockSource("REGISTRATION:" + request.getRegId());
+        LambdaQueryWrapper<Bill> sourceQuery = new LambdaQueryWrapper<>();
+        sourceQuery.eq(Bill::getSourceType, "REGISTRATION").eq(Bill::getSourceId, request.getRegId());
+        Bill existing = billMapper.selectOne(sourceQuery);
+        if (existing != null) {
+            if (!java.util.Objects.equals(existing.getPatientId(), request.getPatientId())
+                    || zeroIfNull(existing.getTotalAmount()).compareTo(amount) != 0) {
+                throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+            }
+            return BillConverter.toVo(existing);
+        }
         Bill bill = newBill(bizNoGenerator.next(BizNoType.BILL), request.getPatientId(),
-                null, request.getEncounterId(), request.getVisitType(),
+                null, request.getEncounterId(), "OUTPATIENT",
                 request.getDeptId(), request.getBillType(), request.getRemark());
+        bill.setSourceType("REGISTRATION");
+        bill.setSourceId(request.getRegId());
+        bill.setTotalAmount(amount);
+        bill.setPayableAmount(amount);
+        if (amount.signum() == 0) bill.setBillStatus(BillStatus.SETTLED);
         billMapper.insert(bill);
+        BillItem item = new BillItem();
+        item.setBillId(bill.getId());
+        item.setItemSeq(1);
+        item.setItemCode("REGISTRATION");
+        item.setItemName("门诊挂号费");
+        item.setItemClass("REGISTRATION");
+        item.setUnit("次");
+        item.setUnitPrice(amount);
+        item.setQuantity(BigDecimal.ONE);
+        item.setAmount(amount);
+        item.setChargeDeptId(request.getDeptId());
+        item.setChargeTime(LocalDateTime.now());
+        item.setIsRefunded(0);
+        item.setItemStatus("NORMAL");
+        item.setRemark(request.getRegNo());
+        billItemMapper.insert(item);
         log.info("Bill from registration: billNo={}", bill.getBillNo());
         return BillConverter.toVo(bill);
     }

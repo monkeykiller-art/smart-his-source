@@ -130,7 +130,7 @@ public class RegistrationServiceImpl implements RegistrationService {
         encounterMapper.insert(encounter);
 
         // Step 7: ask his-operations for the registration bill (best effort, compensated later)
-        createBill(patient, schedule, reg);
+        createBill(patient, schedule, reg, encounter.getId());
 
         // Step 8: enqueue the patient for triage
         Triage triage = new Triage();
@@ -310,20 +310,22 @@ public class RegistrationServiceImpl implements RegistrationService {
         return patient;
     }
 
-    private void createBill(Patient patient, Schedule schedule, Registration reg) {
+    private void createBill(Patient patient, Schedule schedule, Registration reg, Long encounterId) {
         try {
             Map<String, Object> billReq = new HashMap<>();
             billReq.put("patientId", patient.getId());
             billReq.put("patientName", patient.getName());
             billReq.put("regId", reg.getId());
             billReq.put("regNo", reg.getRegNo());
+            billReq.put("encounterId", encounterId);
+            billReq.put("visitType", "OUTPATIENT");
             billReq.put("deptId", schedule.getDeptId());
             billReq.put("doctorId", schedule.getDoctorId());
             billReq.put("amount", schedule.getRegFee());
             billReq.put("sourceType", "REGISTRATION");
             ApiResponse<Map<String, Object>> billResp = operationsClient.createRegistrationBill(billReq);
             if (billResp != null && billResp.getCode() == 200 && billResp.getData() != null) {
-                Object billId = billResp.getData().get("billId");
+                Object billId = billResp.getData().get("id");
                 if (billId != null) {
                     reg.setBillId(Long.valueOf(billId.toString()));
                     registrationMapper.updateById(reg);

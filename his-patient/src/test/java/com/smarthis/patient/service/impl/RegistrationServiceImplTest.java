@@ -25,6 +25,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.smarthis.common.model.ApiResponse;
+import com.smarthis.patient.entity.Encounter;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -105,5 +110,43 @@ class RegistrationServiceImplTest {
                 () -> service.refund(12L, "患者退号"));
 
         assertEquals(ErrorCode.REGISTRATION_PAYMENT_REQUIRED.getCode(), exception.getCode());
+    }
+
+    @Test
+    void linksReturnedBillIdAndSendsRegistrationAmountAndEncounter() {
+        Patient patient = new Patient();
+        patient.setId(10L);
+        patient.setDeleted(0);
+        Schedule schedule = new Schedule();
+        schedule.setId(20L);
+        schedule.setDeleted(0);
+        schedule.setScheduleStatus("ACTIVE");
+        schedule.setScheduleDate(LocalDate.now().plusDays(1));
+        schedule.setRegFee(new BigDecimal("12.50"));
+        when(patientMapper.selectById(10L)).thenReturn(patient);
+        when(scheduleMapper.selectById(20L)).thenReturn(schedule);
+        when(bizNoGenerator.next(any())).thenReturn("MZ123");
+        when(registrationMapper.insert(any(Registration.class))).thenAnswer(invocation -> {
+            ((Registration) invocation.getArgument(0)).setId(81L);
+            return 1;
+        });
+        when(encounterMapper.insert(any(Encounter.class))).thenAnswer(invocation -> {
+            ((Encounter) invocation.getArgument(0)).setId(82L);
+            return 1;
+        });
+        when(operationsClient.createRegistrationBill(any())).thenAnswer(invocation -> {
+            Map<String, Object> payload = invocation.getArgument(0);
+            assertEquals(81L, payload.get("regId"));
+            assertEquals(82L, payload.get("encounterId"));
+            assertEquals(new BigDecimal("12.50"), payload.get("amount"));
+            assertEquals("OUTPATIENT", payload.get("visitType"));
+            return ApiResponse.ok(Map.<String, Object>of("id", 91L));
+        });
+        RegistrationCreateRequest request = new RegistrationCreateRequest();
+        request.setPatientId(10L);
+        request.setScheduleId(20L);
+        var result = service.create(request);
+        assertEquals(91L, result.getBillId());
+        assertEquals(schedule.getScheduleDate(), result.getRegDate());
     }
 }
