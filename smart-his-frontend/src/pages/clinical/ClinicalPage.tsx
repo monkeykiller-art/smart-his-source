@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore'
 import type { ClinicalOrder, Diagnosis, Icd10Item, MedicalRecord, MedicalRecordUpdateRequest } from '@/types/clinical'
 import { maskPhone } from '@/utils/maskSensitive'
 import { canCloseEncounter, ordersForEncounter } from './clinicalWorkflow'
+import { recordTemplates } from './clinicalTemplates'
 
 interface RecordFormValues extends MedicalRecordUpdateRequest { chiefComplaint: string }
 interface DiagnosisFormValues { diagnosisName: string; icdCode?: string; icd10Id?: number; diagnosisDesc?: string; isPrimary?: boolean }
@@ -233,6 +234,7 @@ export function ClinicalPage() {
 
     <Modal title={editingRecord ? '编辑病历草稿' : '书写门诊病历'} open={recordOpen} onCancel={() => { setRecordOpen(false); setEditingRecord(null); recordForm.resetFields() }} onOk={() => recordForm.submit()} okText="保存草稿" cancelText="取消" confirmLoading={saveRecord.isPending} width={780} destroyOnHidden>
       <Form<RecordFormValues> form={recordForm} layout="vertical" onFinish={(values) => saveRecord.mutate(values)}>
+        {!editingRecord && <Form.Item label="病历模板"><Select allowClear placeholder="选择模板后自动填充，可继续修改" options={[{ value: 'COMMON_COLD', label: '普通感冒' }, { value: 'HYPERTENSION', label: '高血压复诊' }, { value: 'DIABETES', label: '糖尿病复诊' }]} onChange={(value) => value && recordForm.setFieldsValue({ ...recordTemplates[value] })} /></Form.Item>}
         <div className="clinical-record-form">
           <Form.Item name="title" label="病历标题"><Input /></Form.Item>
           <Form.Item name="chiefComplaint" label="主诉" rules={[{ required: true, message: '请输入患者主诉' }]}><Input.TextArea rows={2} placeholder="症状、部位和持续时间" /></Form.Item>

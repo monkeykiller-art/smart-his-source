@@ -5,6 +5,7 @@ import { ClinicalPage } from './ClinicalPage'
 import { clinicalApi } from '@/services/clinicalApi'
 import { patientApi } from '@/services/patientApi'
 import { registrationApi } from '@/services/registrationApi'
+import { recordTemplates } from './clinicalTemplates'
 
 vi.mock('@/services/clinicalApi', () => ({ clinicalApi: {
   listRecordsByEncounter: vi.fn(), listDiagnoses: vi.fn(), listOrders: vi.fn(), searchIcd10: vi.fn(),
@@ -59,5 +60,10 @@ describe('ClinicalPage', () => {
     expect(await screen.findByText('已入账')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '提交收费' })).not.toBeInTheDocument()
     client.clear()
+  })
+
+  it('defines reusable templates with the core outpatient fields', () => {
+    expect(recordTemplates.HYPERTENSION).toMatchObject({ title: '高血压复诊病历', chiefComplaint: '高血压复诊', diagnosisDesc: '原发性高血压' })
+    expect(recordTemplates.COMMON_COLD?.treatmentPlan).toContain('对症治疗')
   })
 })
