@@ -6,6 +6,44 @@ $envFile = Join-Path $projectRoot '.env'
 $modules = @('his-auth','his-patient','his-clinical','his-operations','his-gateway')
 $runDir = Join-Path $projectRoot '.run'
 
+function Find-JavaExecutable {
+    if ($env:JAVA_HOME) {
+        $configured = Join-Path $env:JAVA_HOME 'bin\java.exe'
+        if (Test-Path -LiteralPath $configured) { return $configured }
+    }
+    $toolchainRoot = Join-Path (Split-Path -Parent $projectRoot) 'work\toolchain\jdk'
+    if (Test-Path -LiteralPath $toolchainRoot) {
+        $match = Get-ChildItem -LiteralPath $toolchainRoot -Directory |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'bin\java.exe') } |
+            Sort-Object Name -Descending | Select-Object -First 1
+        if ($match) { return (Join-Path $match.FullName 'bin\java.exe') }
+    }
+    $java = Get-Command java.exe -ErrorAction SilentlyContinue
+    if ($java) { return $java.Source }
+    throw '未找到 Java。请设置 JAVA_HOME，或确认项目 work\toolchain\jdk 下存在 JDK。'
+}
+
+$javaExecutable = Find-JavaExecutable
+
+function Find-MavenExecutable {
+    if ($env:MAVEN_HOME) {
+        $configured = Join-Path $env:MAVEN_HOME 'bin\mvn.cmd'
+        if (Test-Path -LiteralPath $configured) { return $configured }
+    }
+    $toolchainRoot = Join-Path (Split-Path -Parent $projectRoot) 'work\toolchain'
+    if (Test-Path -LiteralPath $toolchainRoot) {
+        $match = Get-ChildItem -LiteralPath $toolchainRoot -Directory |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'bin\mvn.cmd') } |
+            Sort-Object Name -Descending | Select-Object -First 1
+        if ($match) { return (Join-Path $match.FullName 'bin\mvn.cmd') }
+    }
+    $maven = Get-Command mvn.cmd -ErrorAction SilentlyContinue
+    if ($maven) { return $maven.Source }
+    throw '未找到 Maven。请设置 MAVEN_HOME，或确认项目 work\toolchain 下存在 Maven。'
+}
+
+$mavenExecutable = Find-MavenExecutable
+
 if (-not (Test-Path -LiteralPath $envFile)) {
     throw '缺少 .env。请复制 .env.example 为 .env，并填写安全的本地密钥。'
 }
@@ -46,11 +84,17 @@ try {
     docker compose up -d --wait
     if ($LASTEXITCODE -ne 0) { throw 'Docker Compose 基础环境启动失败。' }
     if (-not $SkipBuild) {
-        mvn package -DskipTests
+        & $mavenExecutable package -DskipTests
         if ($LASTEXITCODE -ne 0) { throw 'Maven 构建失败。' }
     }
 
     New-Item -ItemType Directory -Force -Path $runDir | Out-Null
+    Get-ChildItem -LiteralPath $runDir -Filter '*.pid' -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $oldPid = 0
+        if ([int]::TryParse((Get-Content -LiteralPath $_.FullName -ErrorAction SilentlyContinue), [ref]$oldPid)) {
+            Stop-Process -Id $oldPid -Force -ErrorAction SilentlyContinue
+        }
+    }
     $serviceProcesses = @{}
     foreach ($module in $modules) {
         $jar = Get-ChildItem -LiteralPath (Join-Path $projectRoot "$module\target") -Filter '*.jar' |
@@ -58,7 +102,7 @@ try {
         if (-not $jar) { throw "未找到 $module 的可执行 JAR" }
         $stdout = Join-Path $runDir "$module.log"
         $stderr = Join-Path $runDir "$module-error.log"
-        $process = Start-Process java -ArgumentList @('-jar', $jar.FullName) -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+        $process = Start-Process $javaExecutable -ArgumentList @('-jar', $jar.FullName) -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
         Set-Content -LiteralPath (Join-Path $runDir "$module.pid") -Value $process.Id
         $serviceProcesses[$module] = $process.Id
     }
