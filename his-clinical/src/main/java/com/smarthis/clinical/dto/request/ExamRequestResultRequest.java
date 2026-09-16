@@ -8,4 +8,8 @@ public class ExamRequestResultRequest {
     private String resultSummary;
 
     private String reportNo;
+
+    private Integer isCritical;
+
+    private String reportUrl;
 }

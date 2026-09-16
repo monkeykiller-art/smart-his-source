@@ -20,9 +20,13 @@ interface OrderFormValues {
   usageMethod?: string; frequency?: string; days?: number; quantity?: number; quantityUnit?: string; unitPrice?: number; remark?: string
 }
 interface ExamFormValues { requestType: string; itemName: string; itemType: string; quantity?: number; unitPrice?: number; bodyPart?: string; clinicalInfo?: string; isUrgent?: boolean }
+interface ExamResultValues { resultSummary: string; reportNo?: string; reportUrl?: string; isCritical?: boolean }
 
 const recordStatus: Record<string, { text: string; color: string }> = {
   DRAFT: { text: '草稿', color: 'warning' }, SIGNED: { text: '已签署', color: 'success' }, ARCHIVED: { text: '已归档', color: 'default' },
+}
+const examStatus: Record<string, { text: string; color: string }> = {
+  SUBMITTED: { text: '已提交', color: 'blue' }, ACCEPTED: { text: '已接收', color: 'cyan' }, IN_PROGRESS: { text: '执行中', color: 'processing' }, REPORTED: { text: '已报告', color: 'success' }, CANCELLED: { text: '已取消', color: 'default' },
 }
 const encounterStatus: Record<string, { text: string; color: string }> = {
   PLANNED: { text: '待接诊', color: 'warning' }, IN_PROGRESS: { text: '接诊中', color: 'processing' }, CLOSED: { text: '已结束', color: 'default' },
@@ -45,11 +49,14 @@ export function ClinicalPage() {
   const [diagnosisOpen, setDiagnosisOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
   const [examOpen, setExamOpen] = useState(false)
+  const [examResultOpen, setExamResultOpen] = useState(false)
+  const [selectedExam, setSelectedExam] = useState<ExamRequest | null>(null)
   const [icdKeyword, setIcdKeyword] = useState('')
   const [recordForm] = Form.useForm<RecordFormValues>()
   const [diagnosisForm] = Form.useForm<DiagnosisFormValues>()
   const [orderForm] = Form.useForm<OrderFormValues>()
   const [examForm] = Form.useForm<ExamFormValues>()
+  const [examResultForm] = Form.useForm<ExamResultValues>()
   const [draftSavedAt, setDraftSavedAt] = useState<string>()
   const [messageApi, messageContext] = message.useMessage()
   const selectedOrderType = Form.useWatch('orderType', orderForm)
@@ -155,6 +162,21 @@ export function ClinicalPage() {
     mutationFn: (values: ExamFormValues) => clinicalApi.createExamRequest({ patientId: selectedRegistration!.patientId, encounterId, deptId: selectedRegistration!.deptId, doctorId: selectedRegistration!.doctorId || session!.userId, requestType: values.requestType, isUrgent: values.isUrgent ? 1 : 0, clinicalInfo: values.clinicalInfo, items: [{ itemName: values.itemName, itemType: values.itemType, quantity: values.quantity || 1, unitPrice: values.unitPrice || 0, bodyPart: values.bodyPart }] }),
     onSuccess: async () => { messageApi.success('检验检查申请已提交'); setExamOpen(false); examForm.resetFields(); await refreshClinicalData() }, onError: () => messageApi.error('检验检查申请失败，请检查项目和患者信息。'),
   })
+  const updateExamStatus = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) => clinicalApi.updateExamRequestStatus(id, status),
+    onSuccess: async () => { messageApi.success('检验检查状态已更新'); await refreshClinicalData() },
+    onError: () => messageApi.error('状态更新失败，请确认当前状态允许该操作。'),
+  })
+  const reportExamRequest = useMutation({
+    mutationFn: (values: ExamResultValues) => clinicalApi.reportExamRequest(selectedExam!.id, values.resultSummary, values.reportNo, values.reportUrl, values.isCritical ? 1 : 0),
+    onSuccess: async () => { messageApi.success('检验检查结果已提交审核'); setExamResultOpen(false); setSelectedExam(null); examResultForm.resetFields(); await refreshClinicalData() },
+    onError: () => messageApi.error('结果提交失败，请确认申请处于执行中状态。'),
+  })
+  const acknowledgeCriticalExam = useMutation({
+    mutationFn: (id: number) => clinicalApi.acknowledgeCriticalExam(id, session!.userId),
+    onSuccess: async () => { messageApi.success('危急值已确认'); await refreshClinicalData() },
+    onError: () => messageApi.error('危急值确认失败。'),
+  })
   const cancelOrder = useMutation({
     mutationFn: (id: number) => clinicalApi.cancelOrder(id, '医生撤销'),
     onSuccess: async () => { messageApi.success('医嘱已取消'); await refreshClinicalData() },
@@ -220,8 +242,9 @@ export function ClinicalPage() {
   ]
   const examColumns: TableColumnsType<ExamRequest> = [
     { title: '申请单号', dataIndex: 'requestNo', width: 150 }, { title: '类型', dataIndex: 'requestType', width: 90, render: (value) => value === 'LAB' ? '检验' : '检查' },
-    { title: '项目', key: 'items', render: (_, row) => row.items?.map((item) => item.itemName).join('、') || '—' }, { title: '状态', dataIndex: 'requestStatus', width: 100 },
-    { title: '结果', dataIndex: 'resultSummary', ellipsis: true, render: (value) => value || '待回写' },
+    { title: '项目', key: 'items', render: (_, row) => row.items?.map((item) => item.itemName).join('、') || '—' }, { title: '状态', dataIndex: 'requestStatus', width: 100, render: (value) => <Tag color={examStatus[value]?.color}>{examStatus[value]?.text || value}</Tag> },
+    { title: '结果', dataIndex: 'resultSummary', ellipsis: true, render: (value, row) => <Space>{value || '待回写'}{row.isCritical === 1 && <Tag color="error">危急值</Tag>}</Space> },
+    { title: '操作', key: 'actions', width: 280, render: (_, row) => <Space size={0}>{row.requestStatus === 'SUBMITTED' && <Button type="link" onClick={() => updateExamStatus.mutate({ id: row.id, status: 'ACCEPTED' })}>接收</Button>}{row.requestStatus === 'ACCEPTED' && <Button type="link" onClick={() => updateExamStatus.mutate({ id: row.id, status: 'IN_PROGRESS' })}>开始执行</Button>}{row.requestStatus === 'IN_PROGRESS' && <Button type="link" onClick={() => { setSelectedExam(row); setExamResultOpen(true) }}>录入结果</Button>}{row.isCritical === 1 && row.criticalAcknowledged !== 1 && <Button danger type="link" onClick={() => acknowledgeCriticalExam.mutate(row.id)}>确认危急值</Button>}{!['REPORTED', 'CANCELLED'].includes(row.requestStatus) && <Popconfirm title="确认取消申请？" onConfirm={() => updateExamStatus.mutate({ id: row.id, status: 'CANCELLED' })}><Button danger type="link">取消</Button></Popconfirm>}</Space> },
   ]
   const tabItems = [
     { key: 'record', label: `病历 ${records.data?.length || 0}`, children: <Table<MedicalRecord> rowKey="id" columns={recordColumns} dataSource={records.data || []} loading={records.isLoading} pagination={false} scroll={{ x: 850 }} locale={{ emptyText: '尚未书写本次门诊病历' }} /> },
@@ -278,6 +301,14 @@ export function ClinicalPage() {
           <Form.Item name="diagnosisDesc" label="初步诊断"><Input.TextArea rows={2} /></Form.Item>
           <Form.Item name="treatmentPlan" label="诊疗计划"><Input.TextArea rows={3} /></Form.Item>
         </div>
+      </Form>
+    </Modal>
+    <Modal title="录入检验检查结果" open={examResultOpen} onCancel={() => { setExamResultOpen(false); setSelectedExam(null); examResultForm.resetFields() }} onOk={() => examResultForm.submit()} okText="提交审核" cancelText="取消" confirmLoading={reportExamRequest.isPending} destroyOnHidden>
+      <Form<ExamResultValues> form={examResultForm} layout="vertical" onFinish={(values) => reportExamRequest.mutate(values)}>
+        <Form.Item name="reportNo" label="报告编号"><Input /></Form.Item>
+        <Form.Item name="reportUrl" label="报告地址"><Input placeholder="可选：PACS 或报告系统链接" /></Form.Item>
+        <Form.Item name="resultSummary" label="结果摘要" rules={[{ required: true, message: '请输入结果摘要' }]}><Input.TextArea rows={5} placeholder="填写检验或检查结果，提交后进入已报告状态" /></Form.Item>
+        <Form.Item name="isCritical" valuePropName="checked"><Checkbox>标记为危急值</Checkbox></Form.Item>
       </Form>
     </Modal>
     <Modal title="提交检验检查申请" open={examOpen} onCancel={() => { setExamOpen(false); examForm.resetFields() }} onOk={() => examForm.submit()} okText="提交申请" cancelText="取消" confirmLoading={createExamRequest.isPending} destroyOnHidden>

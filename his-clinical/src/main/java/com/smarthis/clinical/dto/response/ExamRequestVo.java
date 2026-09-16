@@ -44,6 +44,16 @@ public class ExamRequestVo {
 
     private String reportNo;
 
+    private Integer isCritical;
+
+    private Integer criticalAcknowledged;
+
+    private Long criticalAckBy;
+
+    private LocalDateTime criticalAckTime;
+
+    private String reportUrl;
+
     private Integer isPrinted;
 
     private LocalDateTime printTime;

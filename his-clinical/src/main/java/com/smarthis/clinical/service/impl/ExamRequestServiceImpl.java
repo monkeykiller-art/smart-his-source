@@ -4,11 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.smarthis.clinical.converter.ExamRequestConverter;
 import com.smarthis.clinical.dto.request.ExamRequestCreateRequest;
 import com.smarthis.clinical.dto.request.ExamRequestItemRequest;
+import com.smarthis.clinical.dto.request.ExamRequestResultRequest;
 import com.smarthis.clinical.dto.response.ExamRequestVo;
 import com.smarthis.clinical.entity.ExamRequest;
 import com.smarthis.clinical.entity.ExamRequestItem;
 import com.smarthis.clinical.mapper.ExamRequestItemMapper;
 import com.smarthis.clinical.mapper.ExamRequestMapper;
+import com.smarthis.clinical.mapper.MedicalRecordMapper;
+import com.smarthis.clinical.entity.MedicalRecord;
 import com.smarthis.clinical.service.ExamRequestService;
 import com.smarthis.common.exception.BusinessException;
 import com.smarthis.common.model.ErrorCode;
@@ -31,6 +34,7 @@ public class ExamRequestServiceImpl implements ExamRequestService {
     private final ExamRequestMapper examRequestMapper;
     private final ExamRequestItemMapper examRequestItemMapper;
     private final BizNoGenerator bizNoGenerator;
+    private final MedicalRecordMapper medicalRecordMapper;
 
     @Override
     @Transactional
@@ -72,12 +76,61 @@ public class ExamRequestServiceImpl implements ExamRequestService {
     @Transactional
     public void cancel(Long id) {
         ExamRequest entity = getEntity(id);
-        if ("REPORTED".equals(entity.getRequestStatus()) || "CANCELLED".equals(entity.getRequestStatus())) {
-            throw new BusinessException(ErrorCode.EXAM_REQUEST_NOT_FOUND);
-        }
-        entity.setRequestStatus("CANCELLED");
+        transition(id, "CANCELLED");
+    }
+
+    @Override
+    @Transactional
+    public ExamRequestVo transition(Long id, String targetStatus) {
+        ExamRequest entity = getEntity(id);
+        String current = entity.getRequestStatus();
+        boolean allowed = ("SUBMITTED".equals(current) && "ACCEPTED".equals(targetStatus))
+                || ("ACCEPTED".equals(current) && "IN_PROGRESS".equals(targetStatus))
+                || ("IN_PROGRESS".equals(current) && "REPORTED".equals(targetStatus))
+                || (!"REPORTED".equals(current) && !"CANCELLED".equals(current) && "CANCELLED".equals(targetStatus));
+        if (!allowed) throw new BusinessException(ErrorCode.ORDER_STATUS_INVALID);
+        entity.setRequestStatus(targetStatus);
+        if ("REPORTED".equals(targetStatus)) entity.setResultTime(LocalDateTime.now());
         examRequestMapper.updateById(entity);
-        log.info("Exam request cancelled: id={}", id);
+        if (entity.getEncounterId() != null && request.getResultSummary() != null && !request.getResultSummary().isBlank()) {
+            LambdaQueryWrapper<MedicalRecord> recordQuery = new LambdaQueryWrapper<>();
+            recordQuery.eq(MedicalRecord::getEncounterId, entity.getEncounterId()).eq(MedicalRecord::getDeleted, 0)
+                    .orderByDesc(MedicalRecord::getCreatedTime).last("LIMIT 1");
+            MedicalRecord record = medicalRecordMapper.selectOne(recordQuery);
+            if (record != null && !"SIGNED".equals(record.getRecordStatus()) && !"ARCHIVED".equals(record.getRecordStatus())) {
+                String prefix = record.getAuxiliaryExam() == null || record.getAuxiliaryExam().isBlank() ? "" : record.getAuxiliaryExam() + "\n";
+                record.setAuxiliaryExam(prefix + "检验检查[" + entity.getRequestNo() + "]: " + request.getResultSummary());
+                medicalRecordMapper.updateById(record);
+            }
+        }
+        return getById(id);
+    }
+
+    @Override
+    @Transactional
+    public ExamRequestVo report(Long id, ExamRequestResultRequest request) {
+        ExamRequest entity = getEntity(id);
+        if (!"IN_PROGRESS".equals(entity.getRequestStatus())) throw new BusinessException(ErrorCode.ORDER_STATUS_INVALID);
+        entity.setResultSummary(request.getResultSummary());
+        entity.setReportNo(request.getReportNo());
+        entity.setIsCritical(request.getIsCritical() == null ? 0 : request.getIsCritical());
+        entity.setReportUrl(request.getReportUrl());
+        entity.setResultTime(LocalDateTime.now());
+        entity.setRequestStatus("REPORTED");
+        examRequestMapper.updateById(entity);
+        return getById(id);
+    }
+
+    @Override
+    @Transactional
+    public ExamRequestVo acknowledgeCritical(Long id, Long userId) {
+        ExamRequest entity = getEntity(id);
+        if (!Integer.valueOf(1).equals(entity.getIsCritical())) throw new BusinessException(ErrorCode.ORDER_STATUS_INVALID);
+        entity.setCriticalAcknowledged(1);
+        entity.setCriticalAckBy(userId);
+        entity.setCriticalAckTime(LocalDateTime.now());
+        examRequestMapper.updateById(entity);
+        return getById(id);
     }
 
     @Override

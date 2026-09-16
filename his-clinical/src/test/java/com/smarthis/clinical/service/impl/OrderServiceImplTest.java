@@ -2,6 +2,8 @@ package com.smarthis.clinical.service.impl;
 
 import com.smarthis.clinical.client.OperationsClient;
 import com.smarthis.clinical.dto.request.OrderCancelRequest;
+import com.smarthis.clinical.dto.request.OrderCreateRequest;
+import com.smarthis.clinical.dto.request.OrderItemRequest;
 import com.smarthis.clinical.entity.Order;
 import com.smarthis.clinical.entity.OrderItem;
 import com.smarthis.clinical.mapper.OrderMapper;
@@ -22,6 +24,17 @@ class OrderServiceImplTest {
     private final OrderItemMapper items = mock(OrderItemMapper.class);
     private final OperationsClient client = mock(OperationsClient.class);
     private final OrderServiceImpl service = new OrderServiceImpl(orders, items, mock(BizNoGenerator.class), client);
+
+    @Test
+    void rejectsIncompleteMedicinePrescription() {
+        OrderCreateRequest request = new OrderCreateRequest();
+        request.setOrderType("MEDICINE");
+        OrderItemRequest item = new OrderItemRequest();
+        item.setItemName("阿莫西林");
+        request.setItems(List.of(item));
+        assertThrows(BusinessException.class, () -> service.create(request));
+        verify(orders, never()).insert(any(Order.class));
+    }
 
     @Test
     void submitsDraftOnceAndRejectsUnpricedItems() {

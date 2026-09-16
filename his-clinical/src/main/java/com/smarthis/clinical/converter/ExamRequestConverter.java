@@ -71,6 +71,11 @@ public final class ExamRequestConverter {
         vo.setResultTime(e.getResultTime());
         vo.setResultSummary(e.getResultSummary());
         vo.setReportNo(e.getReportNo());
+        vo.setIsCritical(e.getIsCritical());
+        vo.setCriticalAcknowledged(e.getCriticalAcknowledged());
+        vo.setCriticalAckBy(e.getCriticalAckBy());
+        vo.setCriticalAckTime(e.getCriticalAckTime());
+        vo.setReportUrl(e.getReportUrl());
         vo.setIsPrinted(e.getIsPrinted());
         vo.setPrintTime(e.getPrintTime());
         vo.setRemark(e.getRemark());

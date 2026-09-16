@@ -45,6 +45,18 @@ export const clinicalApi = {
     const response = await http.post<ApiResponse<ExamRequest>>('/clinical/exam-requests', request)
     return response.data.data
   },
+  async updateExamRequestStatus(id: number, status: string) {
+    const response = await http.put<ApiResponse<ExamRequest>>(`/clinical/exam-requests/${id}/status/${status}`)
+    return response.data.data
+  },
+  async reportExamRequest(id: number, resultSummary: string, reportNo?: string, reportUrl?: string, isCritical?: number) {
+    const response = await http.put<ApiResponse<ExamRequest>>(`/clinical/exam-requests/${id}/result`, { resultSummary, reportNo, reportUrl, isCritical })
+    return response.data.data
+  },
+  async acknowledgeCriticalExam(id: number, userId: number) {
+    const response = await http.put<ApiResponse<ExamRequest>>(`/clinical/exam-requests/${id}/critical/acknowledge`, null, { params: { userId } })
+    return response.data.data
+  },
   async listOrders(patientId: number) {
     const response = await http.get<ApiResponse<ClinicalOrder[]>>(`/clinical/orders/patient/${patientId}`)
     return response.data.data

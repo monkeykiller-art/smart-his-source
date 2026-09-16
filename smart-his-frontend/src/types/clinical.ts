@@ -85,6 +85,7 @@ export interface DiagnosisCreateRequest {
 export interface ExamRequest {
   id: number; requestNo: string; patientId: number; encounterId?: number; requestType: string; requestStatus: string
   clinicalDiagnosis?: string; clinicalInfo?: string; resultSummary?: string; requestTime?: string
+  isCritical?: number; criticalAcknowledged?: number; reportNo?: string; reportUrl?: string
   items?: Array<{ id?: number; itemName?: string; itemType?: string; quantity?: number; unitPrice?: number; bodyPart?: string; itemStatus?: string }>
 }
 

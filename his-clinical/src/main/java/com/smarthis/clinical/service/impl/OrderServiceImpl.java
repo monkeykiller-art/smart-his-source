@@ -68,6 +68,17 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderVo create(OrderCreateRequest request) {
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException(ErrorCode.ORDER_INVALID);
+        }
+        if ("MEDICINE".equalsIgnoreCase(request.getOrderType())) {
+            for (OrderItemRequest item : request.getItems()) {
+                if (item.getDose() == null || item.getDose().signum() <= 0 || item.getDoseUnit() == null || item.getDoseUnit().isBlank()
+                        || item.getFrequency() == null || item.getFrequency().isBlank() || item.getQuantity() == null || item.getQuantity().signum() <= 0) {
+                    throw new BusinessException(ErrorCode.PRESCRIPTION_CHECK_FAILED);
+                }
+            }
+        }
         Order order = OrderConverter.toEntity(request);
         order.setOrderNo(bizNoGenerator.next(BizNoType.ORDER));
         order.setOrderTime(LocalDateTime.now());
