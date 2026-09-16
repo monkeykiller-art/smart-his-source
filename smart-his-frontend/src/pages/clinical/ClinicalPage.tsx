@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Card, Checkbox, Descriptions, Empty, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Tooltip, message } from 'antd'
 import type { TableColumnsType } from 'antd'
 import dayjs from 'dayjs'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { clinicalApi } from '@/services/clinicalApi'
 import { patientApi } from '@/services/patientApi'
 import { registrationApi } from '@/services/registrationApi'
@@ -47,6 +47,7 @@ export function ClinicalPage() {
   const [recordForm] = Form.useForm<RecordFormValues>()
   const [diagnosisForm] = Form.useForm<DiagnosisFormValues>()
   const [orderForm] = Form.useForm<OrderFormValues>()
+  const [draftSavedAt, setDraftSavedAt] = useState<string>()
   const [messageApi, messageContext] = message.useMessage()
   const selectedOrderType = Form.useWatch('orderType', orderForm)
   const today = dayjs().format('YYYY-MM-DD')
@@ -114,7 +115,7 @@ export function ClinicalPage() {
           ...values, patientId: selectedRegistration!.patientId, encounterId, deptId: selectedRegistration!.deptId,
           doctorId: selectedRegistration!.doctorId || session!.userId, recordType: 'OUTPATIENT',
         }),
-    onSuccess: async () => { messageApi.success(editingRecord ? '病历草稿已更新' : '门诊病历草稿已保存'); setRecordOpen(false); setEditingRecord(null); recordForm.resetFields(); await refreshClinicalData() },
+    onSuccess: async () => { if (!editingRecord && encounterId) localStorage.removeItem(`clinical-record-draft:${encounterId}`); messageApi.success(editingRecord ? '病历草稿已更新' : '门诊病历草稿已保存'); setRecordOpen(false); setEditingRecord(null); recordForm.resetFields(); setDraftSavedAt(undefined); await refreshClinicalData() },
     onError: () => messageApi.error('病历保存失败，请确认病历仍为草稿并检查临床服务。'),
   })
   const signRecord = useMutation({
@@ -163,6 +164,12 @@ export function ClinicalPage() {
   const openNewRecord = () => {
     setEditingRecord(null)
     recordForm.setFieldsValue({ title: '门诊病历', allergyHistory: patient.data?.allergyHistory })
+    if (encounterId) {
+      const saved = localStorage.getItem(`clinical-record-draft:${encounterId}`)
+      if (saved) {
+        try { recordForm.setFieldsValue(JSON.parse(saved) as RecordFormValues); setDraftSavedAt('已恢复自动保存草稿') } catch { localStorage.removeItem(`clinical-record-draft:${encounterId}`) }
+      }
+    }
     setRecordOpen(true)
   }
   const openRecordEditor = (record: MedicalRecord) => { setEditingRecord(record); recordForm.setFieldsValue(record); setRecordOpen(true) }
@@ -170,6 +177,15 @@ export function ClinicalPage() {
     const selected = icdOptions.data?.find((item) => item.id === id)
     if (selected) diagnosisForm.setFieldsValue({ icd10Id: selected.id, icdCode: selected.icdCode, diagnosisName: selected.icdName })
   }
+  const recordDraft = Form.useWatch([], recordForm)
+  useEffect(() => {
+    if (!recordOpen || editingRecord || !encounterId || !recordDraft?.chiefComplaint) return
+    const timer = window.setTimeout(() => {
+      localStorage.setItem(`clinical-record-draft:${encounterId}`, JSON.stringify(recordDraft))
+      setDraftSavedAt(`自动保存于 ${dayjs().format('HH:mm:ss')}`)
+    }, 800)
+    return () => window.clearTimeout(timer)
+  }, [recordDraft, recordOpen, editingRecord, encounterId])
 
   const recordColumns: TableColumnsType<MedicalRecord> = [
     { title: '病历号', dataIndex: 'recordNo', width: 150 }, { title: '标题', dataIndex: 'title', width: 130, render: (value) => value || '门诊病历' },
@@ -235,6 +251,7 @@ export function ClinicalPage() {
     <Modal title={editingRecord ? '编辑病历草稿' : '书写门诊病历'} open={recordOpen} onCancel={() => { setRecordOpen(false); setEditingRecord(null); recordForm.resetFields() }} onOk={() => recordForm.submit()} okText="保存草稿" cancelText="取消" confirmLoading={saveRecord.isPending} width={780} destroyOnHidden>
       <Form<RecordFormValues> form={recordForm} layout="vertical" onFinish={(values) => saveRecord.mutate(values)}>
         {!editingRecord && <Form.Item label="病历模板"><Select allowClear placeholder="选择模板后自动填充，可继续修改" options={[{ value: 'COMMON_COLD', label: '普通感冒' }, { value: 'HYPERTENSION', label: '高血压复诊' }, { value: 'DIABETES', label: '糖尿病复诊' }]} onChange={(value) => value && recordForm.setFieldsValue({ ...recordTemplates[value] })} /></Form.Item>}
+        {!editingRecord && draftSavedAt && <Alert type="info" showIcon message={draftSavedAt} description="填写内容会自动保存在当前浏览器，保存病历后自动清除。" style={{ marginBottom: 12 }} />}
         <div className="clinical-record-form">
           <Form.Item name="title" label="病历标题"><Input /></Form.Item>
           <Form.Item name="chiefComplaint" label="主诉" rules={[{ required: true, message: '请输入患者主诉' }]}><Input.TextArea rows={2} placeholder="症状、部位和持续时间" /></Form.Item>

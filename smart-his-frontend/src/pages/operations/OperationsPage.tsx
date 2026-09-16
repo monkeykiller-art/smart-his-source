@@ -5,6 +5,7 @@ import type { TableColumnsType } from 'antd'
 import dayjs from 'dayjs'
 import { useState } from 'react'
 import { operationsApi } from '@/services/operationsApi'
+import { patientApi } from '@/services/patientApi'
 import { formatMoney as money, moneyAmount, moneyDue, moneySum, moneyUnits, validPayment } from '@/utils/money'
 import type { Bill, BillItem, BillPaymentRequest, BillQuery, BillRefundRequest, BillStatus, BillTransaction, VisitType } from '@/types/operations'
 
@@ -85,17 +86,24 @@ export function OperationsPage() {
     onSuccess: refreshAfterBillAction,
   })
 
-  const applyFilters = () => {
+  const applyFilters = async () => {
     const value = patientIdInput.trim()
-    if (value && (!/^\d+$/.test(value) || Number(value) < 1)) {
-      setFilterError('患者编号须为正整数。')
-      return
+    let patientId: number | undefined
+    if (value) {
+      if (/^\d+$/.test(value) && Number(value) > 0) patientId = Number(value)
+      else {
+        try {
+          const result = await patientApi.query({ page: 1, size: 2, keyword: value })
+          if (result.total !== 1 || !result.records[0]) { setFilterError('未找到唯一患者，请输入数字 ID、EMPI、姓名或手机号。'); return }
+          patientId = result.records[0].id
+        } catch { setFilterError('患者查询失败，请检查患者服务连接。'); return }
+      }
     }
     setFilterError('')
     setPage(1)
     setFilters((current) => ({
       ...current,
-      patientId: value ? Number(value) : undefined,
+      patientId,
     }))
   }
   const resetFilters = () => {
@@ -213,7 +221,7 @@ export function OperationsPage() {
       <Card size="small" className="metric-card"><div className="metric-label">默认范围</div><div className="metric-value operations-default">待缴账单</div><div className="metric-note">可切换查看其他状态</div></Card>
     </section>
     <Card className="patient-table-card" title="账单查询" extra={<Space wrap className="operations-filters">
-      <Input aria-label="患者编号" value={patientIdInput} onChange={(event) => setPatientIdInput(event.target.value)} onPressEnter={applyFilters} placeholder="患者编号" style={{ width: 135 }} />
+      <Input aria-label="患者编号" value={patientIdInput} onChange={(event) => setPatientIdInput(event.target.value)} onPressEnter={applyFilters} placeholder="数字 ID / EMPI / 姓名" style={{ width: 180 }} />
       <Select aria-label="账单状态" value={filters.billStatus} allowClear placeholder="全部账单状态" style={{ width: 130 }} options={Object.entries(billStatusMeta).map(([value, status]) => ({ value, label: status.label }))} onChange={(value) => { setPage(1); setFilters((current) => ({ ...current, billStatus: value })) }} />
       <Select aria-label="就诊类型" value={filters.visitType} allowClear placeholder="全部就诊类型" style={{ width: 120 }} options={Object.entries(visitTypeLabel).map(([value, label]) => ({ value, label }))} onChange={(value) => { setPage(1); setFilters((current) => ({ ...current, visitType: value })) }} />
       <Button type="primary" icon={<SearchOutlined />} onClick={applyFilters}>查询</Button>

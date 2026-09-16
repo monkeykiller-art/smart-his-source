@@ -3,11 +3,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { operationsApi } from '@/services/operationsApi'
 import { OperationsPage } from './OperationsPage'
+import { patientApi } from '@/services/patientApi'
 
 vi.mock('@/services/operationsApi', () => ({ operationsApi: {
   queryBills: vi.fn(), getBill: vi.fn(), listBillItems: vi.fn(), listTransactions: vi.fn(),
   payBill: vi.fn(), refundBill: vi.fn(), voidBill: vi.fn(),
 } }))
+vi.mock('@/services/patientApi', () => ({ patientApi: { query: vi.fn() } }))
 
 describe('OperationsPage', () => {
   beforeEach(() => {
@@ -39,17 +41,17 @@ describe('OperationsPage', () => {
     expect(operationsApi.listBillItems).toHaveBeenCalledWith(12)
   })
 
-  it('rejects a non-numeric patient identifier before querying', async () => {
+  it('resolves an EMPI patient identifier before querying bills', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
     await screen.findByText('B20260914001')
     vi.mocked(operationsApi.queryBills).mockClear()
 
-    fireEvent.change(screen.getByRole('textbox', { name: '患者编号' }), { target: { value: 'abc' } })
+    vi.mocked(patientApi.query).mockResolvedValue({ records: [{ id: 1001, empiNo: 'EM20260915000001', name: '张三' }], total: 1, page: 1, size: 2, totalPages: 1 } as never)
+    fireEvent.change(screen.getByRole('textbox', { name: '患者编号' }), { target: { value: 'EM20260915000001' } })
     fireEvent.click(screen.getByRole('button', { name: /查询/ }))
-
-    expect(await screen.findByText('患者编号须为正整数。')).toBeInTheDocument()
-    expect(operationsApi.queryBills).not.toHaveBeenCalled()
+    await waitFor(() => expect(patientApi.query).toHaveBeenCalledWith({ page: 1, size: 2, keyword: 'EM20260915000001' }))
+    await waitFor(() => expect(operationsApi.queryBills).toHaveBeenLastCalledWith(expect.objectContaining({ patientId: 1001 })))
   })
 
   it('requires cashier confirmation and sends the payment amount with an idempotency key', async () => {
