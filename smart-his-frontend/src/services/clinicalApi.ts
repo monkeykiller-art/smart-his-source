@@ -1,6 +1,6 @@
 import { http } from './http'
 import type { ApiResponse } from '@/types/api'
-import type { ClinicalOrder, ClinicalOrderCreateRequest, Diagnosis, DiagnosisCreateRequest, Icd10Item, MedicalRecord, MedicalRecordCreateRequest, MedicalRecordUpdateRequest } from '@/types/clinical'
+import type { ClinicalOrder, ClinicalOrderCreateRequest, Diagnosis, DiagnosisCreateRequest, ExamRequest, ExamRequestCreateRequest, Icd10Item, MedicalRecord, MedicalRecordCreateRequest, MedicalRecordUpdateRequest } from '@/types/clinical'
 
 export const clinicalApi = {
   async listRecords(patientId: number) {
@@ -36,6 +36,14 @@ export const clinicalApi = {
   async searchIcd10(keyword: string) {
     const response = await http.get<ApiResponse<{ records: Icd10Item[] }>>('/clinical/icd10/search', { params: { page: 1, size: 20, keyword, dictStatus: 1 } })
     return response.data.data.records
+  },
+  async listExamRequests(patientId: number) {
+    const response = await http.get<ApiResponse<ExamRequest[]>>(`/clinical/exam-requests/patient/${patientId}`)
+    return response.data.data
+  },
+  async createExamRequest(request: ExamRequestCreateRequest) {
+    const response = await http.post<ApiResponse<ExamRequest>>('/clinical/exam-requests', request)
+    return response.data.data
   },
   async listOrders(patientId: number) {
     const response = await http.get<ApiResponse<ClinicalOrder[]>>(`/clinical/orders/patient/${patientId}`)

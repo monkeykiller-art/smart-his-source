@@ -8,7 +8,7 @@ import { clinicalApi } from '@/services/clinicalApi'
 import { patientApi } from '@/services/patientApi'
 import { registrationApi } from '@/services/registrationApi'
 import { useAuthStore } from '@/stores/authStore'
-import type { ClinicalOrder, Diagnosis, Icd10Item, MedicalRecord, MedicalRecordUpdateRequest } from '@/types/clinical'
+import type { ClinicalOrder, Diagnosis, ExamRequest, Icd10Item, MedicalRecord, MedicalRecordUpdateRequest } from '@/types/clinical'
 import { maskPhone } from '@/utils/maskSensitive'
 import { canCloseEncounter, ordersForEncounter } from './clinicalWorkflow'
 import { recordTemplates } from './clinicalTemplates'
@@ -19,6 +19,7 @@ interface OrderFormValues {
   orderType: string; orderCategory: string; itemName: string; spec?: string; dose?: number; doseUnit?: string
   usageMethod?: string; frequency?: string; days?: number; quantity?: number; quantityUnit?: string; unitPrice?: number; remark?: string
 }
+interface ExamFormValues { requestType: string; itemName: string; itemType: string; quantity?: number; unitPrice?: number; bodyPart?: string; clinicalInfo?: string; isUrgent?: boolean }
 
 const recordStatus: Record<string, { text: string; color: string }> = {
   DRAFT: { text: '草稿', color: 'warning' }, SIGNED: { text: '已签署', color: 'success' }, ARCHIVED: { text: '已归档', color: 'default' },
@@ -43,10 +44,12 @@ export function ClinicalPage() {
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null)
   const [diagnosisOpen, setDiagnosisOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
+  const [examOpen, setExamOpen] = useState(false)
   const [icdKeyword, setIcdKeyword] = useState('')
   const [recordForm] = Form.useForm<RecordFormValues>()
   const [diagnosisForm] = Form.useForm<DiagnosisFormValues>()
   const [orderForm] = Form.useForm<OrderFormValues>()
+  const [examForm] = Form.useForm<ExamFormValues>()
   const [draftSavedAt, setDraftSavedAt] = useState<string>()
   const [messageApi, messageContext] = message.useMessage()
   const selectedOrderType = Form.useWatch('orderType', orderForm)
@@ -85,6 +88,7 @@ export function ClinicalPage() {
     queryKey: ['clinical-orders', selectedRegistration?.patientId], queryFn: () => clinicalApi.listOrders(selectedRegistration!.patientId), enabled: Boolean(selectedRegistration?.patientId),
     refetchInterval: (query) => query.state.data?.some((order) => order.orderStatus === 'SUBMITTED' && !order.billId) ? 30000 : false,
   })
+  const examRequests = useQuery({ queryKey: ['clinical-exam-requests', selectedRegistration?.patientId], queryFn: () => clinicalApi.listExamRequests(selectedRegistration!.patientId), enabled: Boolean(selectedRegistration?.patientId) })
   const icdOptions = useQuery({
     queryKey: ['icd10', icdKeyword], queryFn: () => clinicalApi.searchIcd10(icdKeyword), enabled: diagnosisOpen && icdKeyword.trim().length > 0,
   })
@@ -96,6 +100,7 @@ export function ClinicalPage() {
       queryClient.invalidateQueries({ queryKey: ['registrations'] }), queryClient.invalidateQueries({ queryKey: ['patient-detail'] }),
       queryClient.invalidateQueries({ queryKey: ['encounter'] }), queryClient.invalidateQueries({ queryKey: ['clinical-records'] }),
       queryClient.invalidateQueries({ queryKey: ['clinical-diagnoses'] }), queryClient.invalidateQueries({ queryKey: ['clinical-orders'] }),
+      queryClient.invalidateQueries({ queryKey: ['clinical-exam-requests'] }),
     ])
   }
   const startEncounter = useMutation({
@@ -145,6 +150,10 @@ export function ClinicalPage() {
     }),
     onSuccess: async () => { messageApi.success('医嘱已开立'); setOrderOpen(false); orderForm.resetFields(); await refreshClinicalData() },
     onError: () => messageApi.error('医嘱开立失败，请检查项目和患者信息。'),
+  })
+  const createExamRequest = useMutation({
+    mutationFn: (values: ExamFormValues) => clinicalApi.createExamRequest({ patientId: selectedRegistration!.patientId, encounterId, deptId: selectedRegistration!.deptId, doctorId: selectedRegistration!.doctorId || session!.userId, requestType: values.requestType, isUrgent: values.isUrgent ? 1 : 0, clinicalInfo: values.clinicalInfo, items: [{ itemName: values.itemName, itemType: values.itemType, quantity: values.quantity || 1, unitPrice: values.unitPrice || 0, bodyPart: values.bodyPart }] }),
+    onSuccess: async () => { messageApi.success('检验检查申请已提交'); setExamOpen(false); examForm.resetFields(); await refreshClinicalData() }, onError: () => messageApi.error('检验检查申请失败，请检查项目和患者信息。'),
   })
   const cancelOrder = useMutation({
     mutationFn: (id: number) => clinicalApi.cancelOrder(id, '医生撤销'),
@@ -209,10 +218,16 @@ export function ClinicalPage() {
       <Popconfirm title="确认取消该医嘱？已收款账单须先退费。" onConfirm={() => cancelOrder.mutate(row.id)}><Button danger type="link" loading={cancelOrder.isPending}>取消</Button></Popconfirm>
     </Space> : '—' },
   ]
+  const examColumns: TableColumnsType<ExamRequest> = [
+    { title: '申请单号', dataIndex: 'requestNo', width: 150 }, { title: '类型', dataIndex: 'requestType', width: 90, render: (value) => value === 'LAB' ? '检验' : '检查' },
+    { title: '项目', key: 'items', render: (_, row) => row.items?.map((item) => item.itemName).join('、') || '—' }, { title: '状态', dataIndex: 'requestStatus', width: 100 },
+    { title: '结果', dataIndex: 'resultSummary', ellipsis: true, render: (value) => value || '待回写' },
+  ]
   const tabItems = [
     { key: 'record', label: `病历 ${records.data?.length || 0}`, children: <Table<MedicalRecord> rowKey="id" columns={recordColumns} dataSource={records.data || []} loading={records.isLoading} pagination={false} scroll={{ x: 850 }} locale={{ emptyText: '尚未书写本次门诊病历' }} /> },
     { key: 'diagnosis', label: `诊断 ${diagnoses.data?.length || 0}`, children: <Table<Diagnosis> rowKey="id" columns={diagnosisColumns} dataSource={diagnoses.data || []} loading={diagnoses.isLoading} pagination={false} locale={{ emptyText: '尚未录入诊断' }} /> },
     { key: 'order', label: `医嘱 ${encounterOrders.length}`, children: <Table<ClinicalOrder> rowKey="id" columns={orderColumns} dataSource={encounterOrders} loading={orders.isLoading} pagination={false} scroll={{ x: 850 }} locale={{ emptyText: '尚未开立医嘱' }} /> },
+    { key: 'exam', label: `检验检查 ${examRequests.data?.length || 0}`, children: <Table<ExamRequest> rowKey="id" columns={examColumns} dataSource={examRequests.data || []} loading={examRequests.isLoading} pagination={false} scroll={{ x: 850 }} locale={{ emptyText: '尚未提交检验检查申请' }} /> },
   ]
   const statusMeta = currentEncounterStatus ? encounterStatus[currentEncounterStatus] : undefined
   const allergyHistory = patient.data?.allergyHistory?.trim()
@@ -242,7 +257,7 @@ export function ClinicalPage() {
           </div>
         </> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="今日暂无可接诊挂号" />}
       </Card>
-      <Card className="clinical-workspace-card" title="诊疗工作区" extra={<Space wrap><Button icon={<PlusOutlined />} disabled={!isInProgress} onClick={openNewRecord}>写病历</Button><Button icon={<PlusOutlined />} disabled={!isInProgress} onClick={() => setDiagnosisOpen(true)}>加诊断</Button><Button type="primary" icon={<MedicineBoxOutlined />} disabled={!isInProgress} onClick={() => setOrderOpen(true)}>开医嘱</Button></Space>}>
+      <Card className="clinical-workspace-card" title="诊疗工作区" extra={<Space wrap><Button icon={<PlusOutlined />} disabled={!isInProgress} onClick={openNewRecord}>写病历</Button><Button icon={<PlusOutlined />} disabled={!isInProgress} onClick={() => setDiagnosisOpen(true)}>加诊断</Button><Button icon={<PlusOutlined />} disabled={!isInProgress} onClick={() => setExamOpen(true)}>检验检查</Button><Button type="primary" icon={<MedicineBoxOutlined />} disabled={!isInProgress} onClick={() => setOrderOpen(true)}>开医嘱</Button></Space>}>
         {encounter.isError && <Alert type="error" showIcon message="就诊信息加载失败" description="请确认患者服务可用，或刷新后重新选择患者。" style={{ marginBottom: 12 }} />}
         {selectedRegistration ? <>{currentEncounterStatus === 'PLANNED' && <Alert type="info" showIcon message="当前患者尚未开始接诊" description="开始接诊后可以书写病历、添加诊断和开立医嘱。" style={{ marginBottom: 12 }} />}{isClosed && <Alert type="success" showIcon message="本次接诊已经结束" description="病历、诊断和医嘱已转为只读查看。" style={{ marginBottom: 12 }} />}<Tabs items={tabItems} /></> : <Empty description="选择患者后开始接诊" />}
       </Card>
@@ -263,6 +278,16 @@ export function ClinicalPage() {
           <Form.Item name="diagnosisDesc" label="初步诊断"><Input.TextArea rows={2} /></Form.Item>
           <Form.Item name="treatmentPlan" label="诊疗计划"><Input.TextArea rows={3} /></Form.Item>
         </div>
+      </Form>
+    </Modal>
+    <Modal title="提交检验检查申请" open={examOpen} onCancel={() => { setExamOpen(false); examForm.resetFields() }} onOk={() => examForm.submit()} okText="提交申请" cancelText="取消" confirmLoading={createExamRequest.isPending} destroyOnHidden>
+      <Form<ExamFormValues> form={examForm} layout="vertical" onFinish={(values) => createExamRequest.mutate(values)} initialValues={{ requestType: 'LAB', itemType: 'LAB', quantity: 1 }}>
+        <Form.Item name="requestType" label="申请类型" rules={[{ required: true }]}><Select options={[{ value: 'LAB', label: '检验' }, { value: 'EXAM', label: '检查' }]} onChange={(value) => examForm.setFieldValue('itemType', value)} /></Form.Item>
+        <Form.Item name="itemType" hidden><Input /></Form.Item>
+        <Form.Item name="itemName" label="项目名称" rules={[{ required: true, message: '请输入检验或检查项目' }]}><Input placeholder="例如：血常规、胸部 CT" /></Form.Item>
+        <Form.Item name="bodyPart" label="检查部位"><Input /></Form.Item><Form.Item name="quantity" label="数量"><InputNumber min={1} precision={0} style={{ width: '100%' }} /></Form.Item>
+        <Form.Item name="unitPrice" label="单价"><InputNumber min={0} precision={2} prefix="¥" style={{ width: '100%' }} /></Form.Item><Form.Item name="clinicalInfo" label="临床信息"><Input.TextArea rows={3} /></Form.Item>
+        <Form.Item name="isUrgent" valuePropName="checked"><Checkbox>加急申请</Checkbox></Form.Item>
       </Form>
     </Modal>
     <Modal title="添加诊断" open={diagnosisOpen} onCancel={() => { setDiagnosisOpen(false); setIcdKeyword(''); diagnosisForm.resetFields() }} onOk={() => diagnosisForm.submit()} okText="保存诊断" cancelText="取消" confirmLoading={createDiagnosis.isPending} destroyOnHidden>

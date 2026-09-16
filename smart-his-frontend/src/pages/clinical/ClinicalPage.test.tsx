@@ -8,8 +8,8 @@ import { registrationApi } from '@/services/registrationApi'
 import { recordTemplates } from './clinicalTemplates'
 
 vi.mock('@/services/clinicalApi', () => ({ clinicalApi: {
-  listRecordsByEncounter: vi.fn(), listDiagnoses: vi.fn(), listOrders: vi.fn(), searchIcd10: vi.fn(),
-  createRecord: vi.fn(), updateRecord: vi.fn(), signRecord: vi.fn(), createDiagnosis: vi.fn(), deleteDiagnosis: vi.fn(), createOrder: vi.fn(), cancelOrder: vi.fn(), submitOrder: vi.fn(),
+  listRecordsByEncounter: vi.fn(), listDiagnoses: vi.fn(), listOrders: vi.fn(), listExamRequests: vi.fn(), searchIcd10: vi.fn(),
+  createRecord: vi.fn(), updateRecord: vi.fn(), signRecord: vi.fn(), createDiagnosis: vi.fn(), deleteDiagnosis: vi.fn(), createOrder: vi.fn(), createExamRequest: vi.fn(), cancelOrder: vi.fn(), submitOrder: vi.fn(),
 } }))
 vi.mock('@/services/patientApi', () => ({ patientApi: { getById: vi.fn() } }))
 vi.mock('@/services/registrationApi', () => ({ registrationApi: {
@@ -31,6 +31,7 @@ describe('ClinicalPage', () => {
     vi.mocked(clinicalApi.listRecordsByEncounter).mockResolvedValue([])
     vi.mocked(clinicalApi.listDiagnoses).mockResolvedValue([])
     vi.mocked(clinicalApi.listOrders).mockResolvedValue([])
+    vi.mocked(clinicalApi.listExamRequests).mockResolvedValue([])
   })
 
   it('shows patient safety information and locks clinical editing before the encounter starts', async () => {

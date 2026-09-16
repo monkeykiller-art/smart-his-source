@@ -82,6 +82,17 @@ export interface DiagnosisCreateRequest {
   icd10Id?: number
 }
 
+export interface ExamRequest {
+  id: number; requestNo: string; patientId: number; encounterId?: number; requestType: string; requestStatus: string
+  clinicalDiagnosis?: string; clinicalInfo?: string; resultSummary?: string; requestTime?: string
+  items?: Array<{ id?: number; itemName?: string; itemType?: string; quantity?: number; unitPrice?: number; bodyPart?: string; itemStatus?: string }>
+}
+
+export interface ExamRequestCreateRequest {
+  patientId: number; encounterId?: number; deptId: number; doctorId: number; requestType: string; isUrgent?: number
+  clinicalDiagnosis?: string; clinicalInfo?: string; items: Array<{ itemName: string; itemType: string; quantity?: number; unitPrice?: number; bodyPart?: string }>
+}
+
 export interface Icd10Item {
   id: number
   icdCode: string

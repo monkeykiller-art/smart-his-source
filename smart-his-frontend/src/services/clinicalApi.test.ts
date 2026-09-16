@@ -58,4 +58,13 @@ describe('clinicalApi', () => {
     await expect(clinicalApi.submitOrder(3)).resolves.toMatchObject({ billId: 91, orderStatus: 'SUBMITTED' })
     expect(http.put).toHaveBeenCalledWith('/clinical/orders/3/submit')
   })
+
+  it('creates and lists exam requests', async () => {
+    vi.mocked(http.get).mockResolvedValue({ data: { code: 200, data: [] } })
+    vi.mocked(http.post).mockResolvedValue({ data: { code: 200, data: { id: 4 } } })
+    await clinicalApi.listExamRequests(12)
+    await clinicalApi.createExamRequest({ patientId: 12, encounterId: 34, deptId: 2, doctorId: 8, requestType: 'LAB', items: [{ itemName: '血常规', itemType: 'LAB' }] })
+    expect(http.get).toHaveBeenCalledWith('/clinical/exam-requests/patient/12')
+    expect(http.post).toHaveBeenCalledWith('/clinical/exam-requests', expect.objectContaining({ requestType: 'LAB' }))
+  })
 })
