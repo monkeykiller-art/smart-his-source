@@ -21,6 +21,7 @@ public class Bill extends BaseEntity {
     private Long id;
 
     private String billNo;
+    private String invoiceNo;
 
     private Long patientId;
 

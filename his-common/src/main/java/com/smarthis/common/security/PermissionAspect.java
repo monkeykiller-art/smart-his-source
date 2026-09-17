@@ -33,7 +33,15 @@ public class PermissionAspect {
         if (roles.contains("ADMIN")) {
             return joinPoint.proceed();
         }
-        log.debug("Permission check: required={}, user roles={}", required, roles);
+        Set<String> permissions = ctx.getPermissions() == null ? Set.of() :
+                Arrays.stream(ctx.getPermissions().split(","))
+                        .map(String::trim)
+                        .filter(value -> !value.isEmpty())
+                        .collect(Collectors.toSet());
+        if (!permissions.contains(required)) {
+            log.warn("Permission denied: required={}, userId={}, roles={}", required, ctx.getUserId(), roles);
+            throw new BusinessException(ErrorCode.AUTH_NO_PERMISSION);
+        }
         return joinPoint.proceed();
     }
 }

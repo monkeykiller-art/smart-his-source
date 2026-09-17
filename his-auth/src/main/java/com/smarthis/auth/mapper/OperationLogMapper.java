@@ -5,5 +5,4 @@ import com.smarthis.auth.entity.AuthOperationLog;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
-public interface OperationLogMapper extends BaseMapper<AuthOperationLog> {
-}
+public interface OperationLogMapper extends BaseMapper<AuthOperationLog> {}

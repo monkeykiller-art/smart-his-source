@@ -21,13 +21,14 @@ class BuildConfigurationTest {
 
         for (String module : List.of(
                 "his-common", "his-gateway", "his-auth", "his-patient",
-                "his-clinical", "his-pharma", "his-operations", "his-migration-tests")) {
+                "his-clinical", "his-pharma", "his-operations", "his-emergency",
+                "his-migration-tests")) {
             assertTrue(parentPom.contains("<module>" + module + "</module>"),
                     module + " must remain in the basic outpatient reactor");
         }
         for (String removedModule : List.of(
                 "his-resource", "his-collaboration", "his-cdss",
-                "his-drg", "his-emergency", "his-platform")) {
+                "his-drg", "his-platform")) {
             assertFalse(parentPom.contains("<module>" + removedModule + "</module>"),
                     removedModule + " must not remain in the basic outpatient reactor");
         }
@@ -123,7 +124,7 @@ class BuildConfigurationTest {
 
         List<String> serviceModules = List.of(
                 "his-gateway", "his-auth", "his-patient", "his-clinical",
-                "his-operations", "his-pharma");
+                "his-operations", "his-pharma", "his-emergency");
         for (String module : serviceModules) {
             String modulePom = Files.readString(root.resolve(module).resolve("pom.xml"));
             for (String artifact : runtimeArtifacts) {

@@ -19,6 +19,7 @@ import com.smarthis.operations.dto.request.BillChargeItemRequest;
 import com.smarthis.operations.dto.request.BillRegistrationRequest;
 import com.smarthis.operations.dto.request.BillOrderRequest;
 import com.smarthis.operations.dto.request.BillOrderCancelRequest;
+import com.smarthis.operations.dto.request.BillCreateRequest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -36,6 +37,21 @@ class BillServiceImplTest {
     private final BillTransactionMapper billTransactionMapper = mock(BillTransactionMapper.class);
     private final BillServiceImpl service = new BillServiceImpl(
             billMapper, billItemMapper, feeItemMapper, mock(BizNoGenerator.class), billTransactionMapper);
+
+    @Test
+    void admissionBillingCreatesOneReusableInpatientAccount() {
+        BillCreateRequest request = new BillCreateRequest();
+        request.setAdmissionId(81L);
+        request.setPatientId(10L);
+        request.setDeptId(20L);
+        when(billMapper.insert(any(Bill.class))).thenAnswer(invocation -> { ((Bill) invocation.getArgument(0)).setId(91L); return 1; });
+
+        var created = service.createFromAdmission(request);
+
+        assertEquals(91L, created.getId());
+        assertEquals("INPATIENT", created.getVisitType());
+        verify(billMapper).insert(argThat(bill -> "ADMISSION".equals(bill.getSourceType()) && bill.getSourceId().equals(81L)));
+    }
 
     @Test
     void listsBillItemsOnlyForAnExistingBill() {

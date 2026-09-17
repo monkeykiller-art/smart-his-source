@@ -214,7 +214,7 @@ public class SettlementServiceImpl implements SettlementService {
             if (bi.getFeeItemId() != null) {
                 FeeItem fi = feeItemMapper.selectById(bi.getFeeItemId());
                 if (fi != null && fi.getIsInsurance() != null && fi.getIsInsurance() == 1 && fi.getInsuranceRatio() != null) {
-                    insurance = insurance.add(bi.getAmount().multiply(fi.getInsuranceRatio()).divide(BigDecimal.ONE, 2, RoundingMode.HALF_UP));
+                    insurance = insurance.add(insuranceAmount(bi.getAmount(), fi.getInsuranceRatio()));
                 }
             }
         }
@@ -241,11 +241,18 @@ public class SettlementServiceImpl implements SettlementService {
             if (bi.getFeeItemId() != null) {
                 FeeItem fi = feeItemMapper.selectById(bi.getFeeItemId());
                 if (fi != null && fi.getIsInsurance() != null && fi.getIsInsurance() == 1 && fi.getInsuranceRatio() != null) {
-                    result = result.add(bi.getAmount().multiply(fi.getInsuranceRatio()).setScale(2, RoundingMode.HALF_UP));
+                    result = result.add(insuranceAmount(bi.getAmount(), fi.getInsuranceRatio()));
                 }
             }
         }
         return result;
+    }
+
+    private BigDecimal insuranceAmount(BigDecimal amount, BigDecimal percentage) {
+        if (percentage.signum() < 0 || percentage.compareTo(new BigDecimal("100")) > 0) {
+            throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+        }
+        return amount.multiply(percentage).divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
     }
 
     private BigDecimal safeAdd(BigDecimal a, BigDecimal b) {

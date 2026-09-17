@@ -1,0 +1,2 @@
+ALTER TABLE auth_user ADD COLUMN mfa_enabled SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE auth_user ADD COLUMN mfa_secret VARCHAR(128);

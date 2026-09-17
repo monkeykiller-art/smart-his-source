@@ -21,6 +21,7 @@ public enum ErrorCode {
     AUTH_REFRESH_FAILED(5006, "refresh token expired or invalid"),
     AUTH_CAPTCHA_ERROR(5007, "captcha verification failed"),
     AUTH_PASSWORD_SAME(5008, "new password cannot be same as old"),
+    AUTH_MFA_REQUIRED(5009, "two-factor authentication code is required or invalid"),
 
     // Patient 1xxx
     PATIENT_NOT_FOUND(1001, "patient not found"),

@@ -9,5 +9,6 @@ public class UserContext {
     private String realName;
     private Long deptId;
     private String roles;
+    private String permissions;
     private String traceId;
 }

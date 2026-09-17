@@ -19,7 +19,9 @@ public interface BillService {
     BillVo createFromOrder(com.smarthis.operations.dto.request.BillOrderRequest request);
     BillVo voidOrderSource(com.smarthis.operations.dto.request.BillOrderCancelRequest request);
     BillVo create(BillCreateRequest request);
+    BillVo createFromAdmission(BillCreateRequest request);
     BillVo getById(Long id);
+    BillVo issueInvoice(Long id);
     List<BillItemVo> listItems(Long id);
     List<BillTransactionVo> listTransactions(Long id);
     BillTransactionVo pay(Long id, BillPaymentRequest request);

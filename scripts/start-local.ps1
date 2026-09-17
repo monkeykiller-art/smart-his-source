@@ -3,7 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $projectRoot '.env'
-$modules = @('his-auth','his-patient','his-clinical','his-pharma','his-operations','his-gateway')
+$modules = @('his-auth','his-patient','his-clinical','his-pharma','his-operations','his-emergency','his-gateway')
 $runDir = Join-Path $projectRoot '.run'
 
 function Find-JavaExecutable {

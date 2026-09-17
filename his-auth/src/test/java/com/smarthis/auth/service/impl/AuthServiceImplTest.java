@@ -65,7 +65,8 @@ class AuthServiceImplTest {
         LoginRequest request = loginRequest("correct-password");
         when(userMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(user);
         when(userMapper.selectRoleCodesByUserId(100L)).thenReturn(List.of("DOCTOR", "USER"));
-        when(jwtProvider.createAccessToken(100L, "doctor", "Doctor Zhang", 20L, "DOCTOR,USER"))
+        when(userMapper.selectPermCodesByUserId(100L)).thenReturn(List.of("patient:read"));
+        when(jwtProvider.createAccessToken(100L, "doctor", "Doctor Zhang", 20L, "DOCTOR,USER", "patient:read"))
                 .thenReturn("access-token");
         when(jwtProvider.createRefreshToken(100L)).thenReturn("refresh-token");
         when(jwtProvider.getJti("refresh-token")).thenReturn("refresh-jti");
@@ -78,6 +79,7 @@ class AuthServiceImplTest {
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
         assertThat(response.getRoles()).containsExactly("DOCTOR", "USER");
+        assertThat(response.getPermissions()).containsExactly("patient:read");
         verify(valueOperations).set(
                 "his:auth:refresh:refresh-jti", "100", 604800L, TimeUnit.SECONDS);
 
@@ -109,7 +111,20 @@ class AuthServiceImplTest {
         assertThat(update.getValue().getFailedAttempts()).isZero();
         assertThat(update.getValue().getLockedUntil())
                 .isBetween(before.plusMinutes(15), LocalDateTime.now().plusMinutes(15));
-        verify(jwtProvider, never()).createAccessToken(any(), any(), any(), any(), any());
+        verify(jwtProvider, never()).createAccessToken(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void loginRejectsMissingMfaCodeWhenEnabled() {
+        AuthUser user = activeUser();
+        user.setMfaEnabled(1);
+        user.setMfaSecret("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ");
+        when(userMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(user);
+
+        assertThatThrownBy(() -> authService.login(loginRequest("correct-password"), "127.0.0.1", "test-agent"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ErrorCode.AUTH_MFA_REQUIRED.getCode()));
+        verify(jwtProvider, never()).createAccessToken(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -137,7 +152,8 @@ class AuthServiceImplTest {
         when(valueOperations.get("his:auth:refresh:refresh-jti")).thenReturn("100");
         when(userMapper.selectById(100L)).thenReturn(user);
         when(userMapper.selectRoleCodesByUserId(100L)).thenReturn(List.of("DOCTOR"));
-        when(jwtProvider.createAccessToken(100L, "doctor", "Doctor Zhang", 20L, "DOCTOR"))
+        when(userMapper.selectPermCodesByUserId(100L)).thenReturn(List.of("patient:read"));
+        when(jwtProvider.createAccessToken(100L, "doctor", "Doctor Zhang", 20L, "DOCTOR", "patient:read"))
                 .thenReturn("new-access-token");
         when(jwtProvider.getAccessTokenTtlSeconds()).thenReturn(1800L);
 
@@ -147,6 +163,7 @@ class AuthServiceImplTest {
         assertThat(response.getRefreshToken()).isNull();
         assertThat(response.getUserId()).isEqualTo(100L);
         assertThat(response.getRoles()).containsExactly("DOCTOR");
+        assertThat(response.getPermissions()).containsExactly("patient:read");
     }
 
     @Test

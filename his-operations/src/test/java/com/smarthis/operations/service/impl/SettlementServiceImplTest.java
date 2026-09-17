@@ -24,6 +24,28 @@ import static org.mockito.Mockito.when;
 
 class SettlementServiceImplTest {
 
+    @Test
+    void previewTreatsInsuranceRatioAsPercentageAndPreservesFourDecimals() {
+        Bill bill = new Bill();
+        bill.setPatientId(12L);
+        BillItem item = new BillItem();
+        item.setAmount(new BigDecimal("1.2345"));
+        item.setFeeItemId(5L);
+        var fee = new com.smarthis.operations.entity.FeeItem();
+        fee.setIsInsurance(1);
+        fee.setInsuranceRatio(new BigDecimal("80"));
+        when(billMapper.selectList(any(Wrapper.class))).thenReturn(List.of(bill));
+        when(billItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of(item));
+        when(feeItemMapper.selectById(5L)).thenReturn(fee);
+        var preview = service.preview(44L);
+        assertEquals(new BigDecimal("0.9876"), preview.getInsuranceAmount());
+        assertEquals(new BigDecimal("0.2469"), preview.getSelfPayAmount());
+        fee.setInsuranceRatio(new BigDecimal("100"));
+        assertEquals(new BigDecimal("1.2345"), service.preview(44L).getInsuranceAmount());
+        fee.setInsuranceRatio(new BigDecimal("101"));
+        assertThrows(com.smarthis.common.exception.BusinessException.class, () -> service.preview(44L));
+    }
+
     private final SettlementMapper settlementMapper = mock(SettlementMapper.class);
     private final SettlementItemMapper settlementItemMapper = mock(SettlementItemMapper.class);
     private final BillMapper billMapper = mock(BillMapper.class);

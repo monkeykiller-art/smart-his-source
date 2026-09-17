@@ -54,6 +54,23 @@ public class AuthController {
         return ApiResponse.ok(info);
     }
 
+    @PostMapping("/mfa/setup")
+    public ApiResponse<Map<String, String>> setupMfa() {
+        return ApiResponse.ok(authService.setupMfa(UserContextHolder.getUserId()));
+    }
+
+    @PostMapping("/mfa/enable")
+    public ApiResponse<Void> enableMfa(@RequestBody Map<String, String> body) {
+        authService.enableMfa(UserContextHolder.getUserId(), body.get("code"));
+        return ApiResponse.ok();
+    }
+
+    @PostMapping("/mfa/disable")
+    public ApiResponse<Void> disableMfa(@RequestBody Map<String, String> body) {
+        authService.disableMfa(UserContextHolder.getUserId(), body.get("code"));
+        return ApiResponse.ok();
+    }
+
     private String getClientIp(HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");
         if (ip == null || ip.isBlank() || "unknown".equalsIgnoreCase(ip)) {

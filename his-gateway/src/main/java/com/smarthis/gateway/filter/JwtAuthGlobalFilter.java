@@ -96,6 +96,7 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
                             .header("X-Username", claims.get("un", String.class))
                             .header("X-Real-Name", claims.get("rn", String.class))
                             .header("X-Roles", claims.get("roles", String.class))
+                            .header("X-Permissions", claims.get("perms", String.class) != null ? claims.get("perms", String.class) : "")
                             .header("X-Trace-Id", traceId != null ? traceId : "");
 
                     Object deptId = claims.get("dept");
@@ -126,6 +127,7 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
                     headers.remove("X-Real-Name");
                     headers.remove("X-Dept-Id");
                     headers.remove("X-Roles");
+                    headers.remove("X-Permissions");
                 })
                 .build();
     }

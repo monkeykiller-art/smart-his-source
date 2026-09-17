@@ -26,6 +26,7 @@
         <module>his-clinical</module>
         <module>his-pharma</module>
         <module>his-operations</module>
+        <module>his-emergency</module>
         <module>his-migration-tests</module>
     </modules>
 

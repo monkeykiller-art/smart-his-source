@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 public class BillVo {
     private Long id;
     private String billNo;
+    private String invoiceNo;
     private String sourceType;
     private Long sourceId;
     private Long patientId;

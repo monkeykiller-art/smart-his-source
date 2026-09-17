@@ -10,6 +10,7 @@ import com.smarthis.auth.mapper.UserMapper;
 import com.smarthis.auth.service.AuthService;
 import com.smarthis.auth.support.JwtProvider;
 import com.smarthis.auth.support.PasswordHasher;
+import com.smarthis.auth.support.TotpVerifier;
 import com.smarthis.common.exception.BusinessException;
 import com.smarthis.common.model.ErrorCode;
 import io.jsonwebtoken.Claims;
@@ -73,11 +74,19 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ErrorCode.AUTH_LOGIN_FAILED);
         }
 
+        if (Integer.valueOf(1).equals(user.getMfaEnabled())
+                && !TotpVerifier.verify(user.getMfaSecret(), request.getOtpCode())) {
+            logLogin(user.getId(), user.getUsername(), "LOGIN", "MFA_FAILED", ip, userAgent, "invalid otp code");
+            throw new BusinessException(ErrorCode.AUTH_MFA_REQUIRED);
+        }
+
         List<String> roleCodes = userMapper.selectRoleCodesByUserId(user.getId());
+        List<String> permissions = userMapper.selectPermCodesByUserId(user.getId());
         String rolesStr = String.join(",", roleCodes);
+        String permissionsStr = String.join(",", permissions);
 
         String accessToken = jwtProvider.createAccessToken(
-                user.getId(), user.getUsername(), user.getRealName(), user.getDeptId(), rolesStr);
+                user.getId(), user.getUsername(), user.getRealName(), user.getDeptId(), rolesStr, permissionsStr);
         String refreshToken = jwtProvider.createRefreshToken(user.getId());
 
         String jti = jwtProvider.getJti(refreshToken);
@@ -109,6 +118,7 @@ public class AuthServiceImpl implements AuthService {
                 .deptId(user.getDeptId())
                 .deptName(user.getDeptName())
                 .roles(roleCodes)
+                .permissions(permissions)
                 .build();
     }
 
@@ -141,10 +151,12 @@ public class AuthServiceImpl implements AuthService {
         }
 
         List<String> roleCodes = userMapper.selectRoleCodesByUserId(userId);
+        List<String> permissions = userMapper.selectPermCodesByUserId(userId);
         String rolesStr = String.join(",", roleCodes);
+        String permissionsStr = String.join(",", permissions);
 
         String newAccessToken = jwtProvider.createAccessToken(
-                userId, user.getUsername(), user.getRealName(), user.getDeptId(), rolesStr);
+                userId, user.getUsername(), user.getRealName(), user.getDeptId(), rolesStr, permissionsStr);
 
         return LoginResponse.builder()
                 .accessToken(newAccessToken)
@@ -155,6 +167,7 @@ public class AuthServiceImpl implements AuthService {
                 .deptId(user.getDeptId())
                 .deptName(user.getDeptName())
                 .roles(roleCodes)
+                .permissions(permissions)
                 .build();
     }
 
@@ -200,7 +213,47 @@ public class AuthServiceImpl implements AuthService {
         result.put("antibioticLevel", user.getAntibioticLevel());
         result.put("roles", roles);
         result.put("permissions", perms);
+        result.put("mfaEnabled", Integer.valueOf(1).equals(user.getMfaEnabled()));
         return result;
+    }
+
+    @Override
+    public Map<String, String> setupMfa(Long userId) {
+        AuthUser user = requireUser(userId);
+        String secret = TotpVerifier.generateSecret();
+        AuthUser update = new AuthUser();
+        update.setId(userId);
+        update.setMfaSecret(secret);
+        update.setMfaEnabled(0);
+        userMapper.updateById(update);
+        String label = "SmartHIS:" + user.getUsername();
+        return Map.of("secret", secret, "otpauthUri", "otpauth://totp/" + label
+                + "?secret=" + secret + "&issuer=SmartHIS&digits=6&period=30");
+    }
+
+    @Override
+    public void enableMfa(Long userId, String code) {
+        AuthUser user = requireUser(userId);
+        if (!TotpVerifier.verify(user.getMfaSecret(), code)) throw new BusinessException(ErrorCode.AUTH_MFA_REQUIRED);
+        AuthUser update = new AuthUser();
+        update.setId(userId);
+        update.setMfaEnabled(1);
+        userMapper.updateById(update);
+    }
+
+    @Override
+    public void disableMfa(Long userId, String code) {
+        AuthUser user = requireUser(userId);
+        if (!Integer.valueOf(1).equals(user.getMfaEnabled()) || !TotpVerifier.verify(user.getMfaSecret(), code)) {
+            throw new BusinessException(ErrorCode.AUTH_MFA_REQUIRED);
+        }
+        userMapper.clearMfa(userId);
+    }
+
+    private AuthUser requireUser(Long userId) {
+        AuthUser user = userMapper.selectById(userId);
+        if (user == null || user.getDeleted() == 1) throw new BusinessException(ErrorCode.AUTH_LOGIN_FAILED);
+        return user;
     }
 
     private void logLogin(Long userId, String username, String loginType,

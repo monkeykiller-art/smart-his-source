@@ -10,6 +10,7 @@ public enum BizNoType {
     BILL("BL", "账单"),
     DISPENSE("DP", "发药"),
     ADMISSION("ZY", "住院"),
+    SURGERY("SS", "手术"),
     EMERGENCY("JZ", "急诊"),
     PHYSICAL_EXAM("TJ", "体检"),
     ORDER("YZ", "医嘱"),

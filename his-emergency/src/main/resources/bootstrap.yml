@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: his-emergency
+  cloud:
+    nacos:
+      config:
+        enabled: false

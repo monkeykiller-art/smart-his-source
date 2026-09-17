@@ -7,15 +7,20 @@ import com.smarthis.common.model.ErrorCode;
 import com.smarthis.common.model.PageResult;
 import com.smarthis.common.support.BizNoGenerator;
 import com.smarthis.common.support.BizNoType;
+import com.smarthis.common.security.DataScope;
 import com.smarthis.patient.converter.AdmissionConverter;
 import com.smarthis.patient.dto.request.AdmissionCreateRequest;
 import com.smarthis.patient.dto.request.AdmissionDepositRequest;
 import com.smarthis.patient.dto.request.AdmissionDischargeRequest;
 import com.smarthis.patient.dto.request.AdmissionQueryRequest;
+import com.smarthis.patient.dto.request.AdmissionTransferRequest;
 import com.smarthis.patient.dto.response.AdmissionVo;
 import com.smarthis.patient.entity.Admission;
+import com.smarthis.patient.entity.AdmissionTransfer;
 import com.smarthis.patient.entity.Patient;
 import com.smarthis.patient.mapper.AdmissionMapper;
+import com.smarthis.patient.mapper.AdmissionTransferMapper;
+import com.smarthis.patient.mapper.InpatientBedMapper;
 import com.smarthis.patient.mapper.PatientMapper;
 import com.smarthis.patient.service.AdmissionService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -33,6 +39,8 @@ public class AdmissionServiceImpl implements AdmissionService {
 
     private final AdmissionMapper admissionMapper;
     private final PatientMapper patientMapper;
+    private final AdmissionTransferMapper admissionTransferMapper;
+    private final InpatientBedMapper inpatientBedMapper;
     private final BizNoGenerator bizNoGenerator;
 
     @Override
@@ -74,6 +82,7 @@ public class AdmissionServiceImpl implements AdmissionService {
         admission.setAdmissionStatus("ADMITTED");
         admission.setAdmissionDate(LocalDate.now());
         admissionMapper.updateById(admission);
+        occupyBed(admission.getBedId(), admission.getId());
         log.info("Admission admitted: id={}", id);
     }
 
@@ -89,7 +98,45 @@ public class AdmissionServiceImpl implements AdmissionService {
         admission.setDischargeType(request.getDischargeType());
         admission.setDischargeSummary(request.getDischargeSummary());
         admissionMapper.updateById(admission);
+        releaseBed(admission.getBedId(), admission.getId());
         log.info("Admission discharged: id={}", id);
+    }
+
+    @Override
+    @Transactional
+    public AdmissionVo transfer(Long id, AdmissionTransferRequest request) {
+        Admission admission = getEntity(id);
+        if (!"ADMITTED".equals(admission.getAdmissionStatus())) {
+            throw new BusinessException(ErrorCode.ADMISSION_STATUS_INVALID);
+        }
+        if (request.getTargetBedId().equals(admission.getBedId())
+                && request.getTargetWardId().equals(admission.getWardId())
+                && request.getTargetDeptId().equals(admission.getDeptId())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+
+        occupyBed(request.getTargetBedId(), admission.getId());
+        Long previousBedId = admission.getBedId();
+        AdmissionTransfer transfer = new AdmissionTransfer();
+        transfer.setAdmissionId(admission.getId());
+        transfer.setFromDeptId(admission.getDeptId());
+        transfer.setFromWardId(admission.getWardId());
+        transfer.setFromBedId(admission.getBedId());
+        transfer.setToDeptId(request.getTargetDeptId());
+        transfer.setToWardId(request.getTargetWardId());
+        transfer.setToBedId(request.getTargetBedId());
+        transfer.setTransferReason(request.getReason());
+        transfer.setTransferTime(LocalDateTime.now());
+        admissionTransferMapper.insert(transfer);
+
+        admission.setDeptId(request.getTargetDeptId());
+        admission.setWardId(request.getTargetWardId());
+        admission.setBedId(request.getTargetBedId());
+        admissionMapper.updateById(admission);
+        releaseBed(previousBedId, admission.getId());
+        log.info("Admission transferred: id={}, deptId={}, wardId={}, bedId={}", id,
+                request.getTargetDeptId(), request.getTargetWardId(), request.getTargetBedId());
+        return getById(id);
     }
 
     @Override
@@ -124,8 +171,9 @@ public class AdmissionServiceImpl implements AdmissionService {
         if (request.getPatientId() != null) {
             query.eq(Admission::getPatientId, request.getPatientId());
         }
-        if (request.getDeptId() != null) {
-            query.eq(Admission::getDeptId, request.getDeptId());
+        Long scopedDeptId = DataScope.restrictDepartment(request.getDeptId());
+        if (scopedDeptId != null) {
+            query.eq(Admission::getDeptId, scopedDeptId);
         }
         if (request.getWardId() != null) {
             query.eq(Admission::getWardId, request.getWardId());
@@ -175,5 +223,17 @@ public class AdmissionServiceImpl implements AdmissionService {
             throw new BusinessException(ErrorCode.ADMISSION_NOT_FOUND);
         }
         return admission;
+    }
+
+    private void occupyBed(Long bedId, Long admissionId) {
+        if (bedId != null && inpatientBedMapper.occupy(bedId, admissionId) != 1) {
+            throw new BusinessException(ErrorCode.BED_NOT_AVAILABLE);
+        }
+    }
+
+    private void releaseBed(Long bedId, Long admissionId) {
+        if (bedId != null) {
+            inpatientBedMapper.release(bedId, admissionId);
+        }
     }
 }

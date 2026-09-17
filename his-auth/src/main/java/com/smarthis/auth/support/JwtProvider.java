@@ -29,7 +29,7 @@ public class JwtProvider {
     }
 
     public String createAccessToken(Long userId, String username, String realName,
-                                    Long deptId, String roles) {
+                                    Long deptId, String roles, String permissions) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + accessTokenTtlMs);
         return Jwts.builder()
@@ -38,6 +38,7 @@ public class JwtProvider {
                 .claim("rn", realName)
                 .claim("dept", deptId)
                 .claim("roles", roles)
+                .claim("perms", permissions)
                 .claim("jti", UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(exp)

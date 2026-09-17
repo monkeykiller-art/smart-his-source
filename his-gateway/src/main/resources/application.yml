@@ -79,6 +79,10 @@ spring:
           uri: lb://his-pharma
           predicates:
             - Path=/api/pharma/**
+        - id: his-emergency
+          uri: lb://his-emergency
+          predicates:
+            - Path=/api/emergency/**
 
 his:
   jwt:

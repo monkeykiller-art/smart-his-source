@@ -9,4 +9,5 @@ public class LoginRequest {
     private String username;
     @NotBlank(message = "password is required")
     private String password;
+    private String otpCode;
 }

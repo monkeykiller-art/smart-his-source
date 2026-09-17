@@ -35,6 +35,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -174,6 +175,46 @@ public class BillServiceImpl implements BillService {
     @Override
     public BillVo getById(Long id) {
         Bill bill = requireBill(id);
+        return BillConverter.toVo(bill);
+    }
+
+    @Override
+    @Transactional
+    public BillVo issueInvoice(Long id) {
+        Bill bill = requireLockedBill(id);
+        if (bill.getBillStatus() != BillStatus.SETTLED || zeroIfNull(bill.getPaidAmount()).signum() <= 0) {
+            throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+        }
+        if (!StringUtils.hasText(bill.getInvoiceNo())) {
+            bill.setInvoiceNo(bizNoGenerator.next(BizNoType.INVOICE));
+            billMapper.updateById(bill);
+        }
+        return BillConverter.toVo(bill);
+    }
+
+    @Override
+    @Transactional
+    public BillVo createFromAdmission(BillCreateRequest request) {
+        if (request.getAdmissionId() == null || request.getAdmissionId() <= 0
+                || request.getDeptId() == null || request.getPatientId() == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+        billMapper.lockSource("ADMISSION:" + request.getAdmissionId());
+        Bill previous = billMapper.selectOne(new LambdaQueryWrapper<Bill>()
+                .eq(Bill::getSourceType, "ADMISSION")
+                .eq(Bill::getSourceId, request.getAdmissionId()));
+        if (previous != null) {
+            if (!Objects.equals(previous.getPatientId(), request.getPatientId())
+                    || !Objects.equals(previous.getDeptId(), request.getDeptId())) {
+                throw new BusinessException(ErrorCode.BILL_STATUS_INVALID);
+            }
+            return BillConverter.toVo(previous);
+        }
+        Bill bill = newBill(bizNoGenerator.next(BizNoType.BILL), request.getPatientId(), request.getAdmissionId(),
+                request.getEncounterId(), "INPATIENT", request.getDeptId(), request.getBillType(), "住院费用账户");
+        bill.setSourceType("ADMISSION");
+        bill.setSourceId(request.getAdmissionId());
+        billMapper.insert(bill);
         return BillConverter.toVo(bill);
     }
 

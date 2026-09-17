@@ -14,6 +14,7 @@ public class UserContextInterceptor implements HandlerInterceptor {
         ctx.setRealName(request.getHeader("X-Real-Name"));
         ctx.setDeptId(parseLongOrNull(request.getHeader("X-Dept-Id")));
         ctx.setRoles(request.getHeader("X-Roles"));
+        ctx.setPermissions(request.getHeader("X-Permissions"));
         ctx.setTraceId(request.getHeader("X-Trace-Id"));
         UserContextHolder.set(ctx);
         return true;

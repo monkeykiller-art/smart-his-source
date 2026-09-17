@@ -35,6 +35,7 @@ class AllSchemasMigrationTest {
         SERVICE_SCHEMAS.put("his-clinical", "his_clinical");
         SERVICE_SCHEMAS.put("his-pharma", "his_pharma");
         SERVICE_SCHEMAS.put("his-operations", "his_operations");
+        SERVICE_SCHEMAS.put("his-emergency", "his_emergency");
     }
 
     private PostgreSQLContainer postgres;
@@ -100,6 +101,7 @@ class AllSchemasMigrationTest {
             }
             if ("his-patient".equals(service.getKey())) {
                 assertUpcomingScheduleSeedData();
+                assertInpatientBedSeedData();
             }
             if ("his-operations".equals(service.getKey())) {
                 assertBillSourceUniqueness();
@@ -107,7 +109,7 @@ class AllSchemasMigrationTest {
             }
         }
 
-        assertEquals(19, discoveredMigrationCount,
+        assertEquals(24, discoveredMigrationCount,
                 "Every checked-in Flyway migration must be covered by this test");
     }
 
@@ -199,6 +201,13 @@ class AllSchemasMigrationTest {
                   AND schedule_date <= CURRENT_DATE + 90
                   AND schedule_status = 'ACTIVE'
                 """) > 0, "Patient migration must seed upcoming active schedules");
+    }
+
+    private void assertInpatientBedSeedData() throws Exception {
+        assertTrue(queryForInt("""
+                SELECT count(*) FROM his_patient.pat_inpatient_bed
+                WHERE deleted = 0 AND bed_status = 'AVAILABLE'
+                """) >= 4, "Patient migrations must seed usable inpatient beds");
     }
 
     private int queryForInt(String sql) throws Exception {

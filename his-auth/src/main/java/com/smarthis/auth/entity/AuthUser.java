@@ -36,4 +36,6 @@ public class AuthUser extends BaseEntity {
     private Integer prescribeRight;
     private Integer antibioticLevel;
     private String remark;
+    private Integer mfaEnabled;
+    private String mfaSecret;
 }
