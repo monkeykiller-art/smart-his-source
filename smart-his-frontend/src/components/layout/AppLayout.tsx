@@ -10,6 +10,7 @@ const pageTitles: Record<string, string> = {
   '/patient/registrations': '门诊挂号',
   '/clinical': '临床诊疗',
   '/operations': '运营管理',
+  '/pharma': '药房与库存',
 }
 const menuItems = [
   { key: '/', icon: <AppstoreOutlined />, label: '工作台' },
@@ -17,6 +18,7 @@ const menuItems = [
   { key: '/patient/registrations', icon: <CalendarOutlined />, label: '门诊挂号' },
   { key: '/clinical', icon: <MedicineBoxOutlined />, label: '临床诊疗' },
   { key: '/operations', icon: <ExperimentOutlined />, label: '运营管理' },
+  { key: '/pharma', icon: <MedicineBoxOutlined />, label: '药房与库存' },
 ]
 
 export function AppLayout() {

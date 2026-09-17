@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GatewayRouteConfigurationTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"resource", "collaboration", "pharma", "cdss", "drg", "emergency", "platform"})
+    @ValueSource(strings = {"resource", "collaboration", "cdss", "drg", "emergency", "platform"})
     void extensionServiceRoutesAreAbsent(String service) {
         List<Map<String, Object>> routes = routes();
 
@@ -22,7 +22,7 @@ class GatewayRouteConfigurationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"auth", "patient", "clinical", "operations"})
+    @ValueSource(strings = {"auth", "patient", "clinical", "operations", "pharma"})
     void legacyHealthEndpointIsAvailableThroughServiceApiPrefix(String service) {
         List<Map<String, Object>> routes = routes();
 
@@ -34,7 +34,8 @@ class GatewayRouteConfigurationTest {
         assertThat(healthRoute.get("uri")).isEqualTo("lb://his-" + service);
         assertThat(healthRoute.get("order")).isEqualTo(-1);
         assertThat(healthRoute.get("predicates")).isEqualTo(List.of("Path=/api/" + service + "/health"));
-        assertThat(healthRoute.get("filters")).isEqualTo(List.of("SetPath=/health"));
+        String expectedPath = "pharma".equals(service) ? "/api/pharma/health" : "/health";
+        assertThat(healthRoute.get("filters")).isEqualTo(List.of("SetPath=" + expectedPath));
     }
 
     private List<Map<String, Object>> routes() {

@@ -16,6 +16,7 @@ const PatientPage = lazy(() => import('@/pages/patient/PatientPage').then((modul
 const RegistrationPage = lazy(() => import('@/pages/patient/RegistrationPage').then((module) => ({ default: module.RegistrationPage })))
 const ClinicalPage = lazy(() => import('@/pages/clinical/ClinicalPage').then((module) => ({ default: module.ClinicalPage })))
 const OperationsPage = lazy(() => import('@/pages/operations/OperationsPage').then((module) => ({ default: module.OperationsPage })))
+const PharmaPage = lazy(() => import('@/pages/pharma/PharmaPage').then((module) => ({ default: module.PharmaPage })))
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
                 <Route path="patient/registrations" element={<Suspense fallback={<Spin fullscreen tip="正在加载挂号服务" />}><RegistrationPage /></Suspense>} />
                 <Route path="clinical" element={<Suspense fallback={<Spin fullscreen tip="正在加载临床服务" />}><ClinicalPage /></Suspense>} />
                 <Route path="operations" element={<Suspense fallback={<Spin fullscreen tip="正在加载运营服务" />}><OperationsPage /></Suspense>} />
+                <Route path="pharma" element={<Suspense fallback={<Spin fullscreen tip="正在加载药房服务" />}><PharmaPage /></Suspense>} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

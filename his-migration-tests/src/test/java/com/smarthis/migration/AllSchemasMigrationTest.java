@@ -33,6 +33,7 @@ class AllSchemasMigrationTest {
         SERVICE_SCHEMAS.put("his-auth", "his_auth");
         SERVICE_SCHEMAS.put("his-patient", "his_patient");
         SERVICE_SCHEMAS.put("his-clinical", "his_clinical");
+        SERVICE_SCHEMAS.put("his-pharma", "his_pharma");
         SERVICE_SCHEMAS.put("his-operations", "his_operations");
     }
 
@@ -106,7 +107,7 @@ class AllSchemasMigrationTest {
             }
         }
 
-        assertEquals(13, discoveredMigrationCount,
+        assertEquals(19, discoveredMigrationCount,
                 "Every checked-in Flyway migration must be covered by this test");
     }
 

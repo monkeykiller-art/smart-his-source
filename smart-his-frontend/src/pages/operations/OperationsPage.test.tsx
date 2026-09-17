@@ -79,7 +79,8 @@ describe('OperationsPage', () => {
     render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
     await screen.findByText('B20260914001')
     fireEvent.click(screen.getByRole('button', { name: /费用明细/ }))
-    fireEvent.click(await screen.findByRole('button', { name: '登记收款' }))
+    await waitFor(() => expect(operationsApi.getBill).toHaveBeenCalledWith(12), { timeout: 5_000 })
+    fireEvent.click(await screen.findByRole('button', { name: '登记收款' }, { timeout: 5_000 }))
     fireEvent.click(await screen.findByRole('button', { name: '确认收款' }))
     await screen.findByText(/收款未完成/)
     const first = vi.mocked(operationsApi.payBill).mock.calls[0][1]

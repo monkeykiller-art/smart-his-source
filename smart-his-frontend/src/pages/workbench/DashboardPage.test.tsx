@@ -7,10 +7,11 @@ describe('dashboard quick actions', () => {
       '/patient',
       '/patient/registrations',
       '/clinical',
+      '/pharma',
     ])
   })
 
   it('monitors only services required by the basic outpatient workflow', () => {
-    expect(dashboardServices).toEqual(['auth', 'patient', 'clinical', 'operations'])
+    expect(dashboardServices).toEqual(['auth', 'patient', 'clinical', 'operations', 'pharma'])
   })
 })

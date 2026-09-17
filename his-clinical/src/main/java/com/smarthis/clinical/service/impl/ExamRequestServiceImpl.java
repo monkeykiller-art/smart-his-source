@@ -92,17 +92,6 @@ public class ExamRequestServiceImpl implements ExamRequestService {
         entity.setRequestStatus(targetStatus);
         if ("REPORTED".equals(targetStatus)) entity.setResultTime(LocalDateTime.now());
         examRequestMapper.updateById(entity);
-        if (entity.getEncounterId() != null && request.getResultSummary() != null && !request.getResultSummary().isBlank()) {
-            LambdaQueryWrapper<MedicalRecord> recordQuery = new LambdaQueryWrapper<>();
-            recordQuery.eq(MedicalRecord::getEncounterId, entity.getEncounterId()).eq(MedicalRecord::getDeleted, 0)
-                    .orderByDesc(MedicalRecord::getCreatedTime).last("LIMIT 1");
-            MedicalRecord record = medicalRecordMapper.selectOne(recordQuery);
-            if (record != null && !"SIGNED".equals(record.getRecordStatus()) && !"ARCHIVED".equals(record.getRecordStatus())) {
-                String prefix = record.getAuxiliaryExam() == null || record.getAuxiliaryExam().isBlank() ? "" : record.getAuxiliaryExam() + "\n";
-                record.setAuxiliaryExam(prefix + "检验检查[" + entity.getRequestNo() + "]: " + request.getResultSummary());
-                medicalRecordMapper.updateById(record);
-            }
-        }
         return getById(id);
     }
 
@@ -118,6 +107,7 @@ public class ExamRequestServiceImpl implements ExamRequestService {
         entity.setResultTime(LocalDateTime.now());
         entity.setRequestStatus("REPORTED");
         examRequestMapper.updateById(entity);
+        appendResultToDraftRecord(entity, request.getResultSummary());
         return getById(id);
     }
 
@@ -177,5 +167,17 @@ public class ExamRequestServiceImpl implements ExamRequestService {
             throw new BusinessException(ErrorCode.EXAM_REQUEST_NOT_FOUND);
         }
         return request;
+    }
+
+    private void appendResultToDraftRecord(ExamRequest request, String resultSummary) {
+        if (request.getEncounterId() == null || resultSummary == null || resultSummary.isBlank()) return;
+        LambdaQueryWrapper<MedicalRecord> recordQuery = new LambdaQueryWrapper<>();
+        recordQuery.eq(MedicalRecord::getEncounterId, request.getEncounterId()).eq(MedicalRecord::getDeleted, 0)
+                .orderByDesc(MedicalRecord::getCreatedTime).last("LIMIT 1");
+        MedicalRecord record = medicalRecordMapper.selectOne(recordQuery);
+        if (record == null || "SIGNED".equals(record.getRecordStatus()) || "ARCHIVED".equals(record.getRecordStatus())) return;
+        String prefix = record.getAuxiliaryExam() == null || record.getAuxiliaryExam().isBlank() ? "" : record.getAuxiliaryExam() + "\n";
+        record.setAuxiliaryExam(prefix + "检验检查[" + request.getRequestNo() + "]: " + resultSummary);
+        medicalRecordMapper.updateById(record);
     }
 }

@@ -85,6 +85,10 @@ public enum ErrorCode {
     WARD_NOT_FOUND(4008, "ward not found"),
     BED_NOT_FOUND(4009, "bed not found"),
     BED_OCCUPIED(4010, "bed already occupied"),
+    DRUG_CODE_DUPLICATE(4011, "drug code already exists"),
+    DRUG_STATUS_INVALID(4012, "drug status does not allow this operation"),
+    INVENTORY_BATCH_NOT_FOUND(4013, "inventory batch not found"),
+    INVENTORY_OPERATION_INVALID(4014, "invalid inventory operation"),
 
     // Pharma/CDSS 6xxx
     RX_REVIEW_REJECTED(6001, "prescription rejected by safety review"),

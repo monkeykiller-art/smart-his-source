@@ -262,9 +262,13 @@ body, .ant-typography, .ant-form, .ant-table, .ant-menu, .ant-input, .ant-select
 .operations-filters .ant-input, .operations-filters .ant-select-selector { min-height: 28px; }
 .operations-action-form { display: grid; grid-template-columns: 100px minmax(0, 1fr); align-items: center; gap: 10px; margin-top: 12px; }
 .operations-action-form label { color: #40596e; font-weight: 700; }
+.pharma-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 8px; }
+.pharma-grid-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+.pharma-grid-form .ant-input-number, .pharma-grid-form .ant-picker { width: 100%; }
 
 @media (max-width: 720px) {
   .app-header { padding: 0 8px; }
   .header-user-copy { display: none; }
   .clinical-layout { grid-template-columns: 1fr; }
+  .pharma-metrics, .pharma-grid-form { grid-template-columns: 1fr; }
 }

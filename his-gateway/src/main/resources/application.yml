@@ -52,6 +52,13 @@ spring:
             - Path=/api/operations/health
           filters:
             - SetPath=/health
+        - id: his-pharma-health
+          uri: lb://his-pharma
+          order: -1
+          predicates:
+            - Path=/api/pharma/health
+          filters:
+            - SetPath=/api/pharma/health
         - id: his-auth
           uri: lb://his-auth
           predicates:
@@ -68,6 +75,10 @@ spring:
           uri: lb://his-operations
           predicates:
             - Path=/api/operations/**
+        - id: his-pharma
+          uri: lb://his-pharma
+          predicates:
+            - Path=/api/pharma/**
 
 his:
   jwt:
