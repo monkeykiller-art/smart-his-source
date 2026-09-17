@@ -1,7 +1,7 @@
 import type { LoginResponse } from '@/types/api'
 
 const SESSION_KEY = 'smart-his.auth'
-export type AuthSession = Pick<LoginResponse, 'accessToken' | 'refreshToken' | 'userId' | 'username' | 'realName' | 'deptId' | 'deptName' | 'roles'>
+export type AuthSession = Pick<LoginResponse, 'accessToken' | 'refreshToken' | 'userId' | 'username' | 'realName' | 'deptId' | 'deptName' | 'roles' | 'permissions'>
 
 export const tokenStorage = {
   read(): AuthSession | null {

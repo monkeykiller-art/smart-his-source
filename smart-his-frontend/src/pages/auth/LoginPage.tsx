@@ -51,6 +51,7 @@ export function LoginPage() {
             <Form<LoginRequest> layout="vertical" onFinish={handleSubmit} requiredMark={false}>
               <Form.Item name="username" label="工号或账号" rules={[{ required: true, message: '请输入账号' }]}><Input prefix={<UserOutlined />} autoComplete="username" placeholder="请输入工号或账号" /></Form.Item>
               <Form.Item name="password" label="登录密码" rules={[{ required: true, message: '请输入密码' }]}><Input.Password prefix={<LockOutlined />} autoComplete="current-password" placeholder="请输入登录密码" /></Form.Item>
+              <Form.Item name="otpCode" label="动态验证码（已启用二次认证时填写）"><Input inputMode="numeric" maxLength={6} placeholder="认证器中的 6 位验证码" /></Form.Item>
               <Button block type="primary" htmlType="submit" loading={loading}>登录</Button>
             </Form>
             <div className="login-footnote"><SafetyCertificateOutlined /> 请使用本人账号，所有操作均记录审计日志</div>

@@ -1,13 +1,15 @@
-import { EyeOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons'
+import { EyeOutlined, PrinterOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Card, Descriptions, Drawer, Empty, Input, InputNumber, Modal, Select, Space, Statistic, Table, Tag } from 'antd'
 import type { TableColumnsType } from 'antd'
 import dayjs from 'dayjs'
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
+import { BillPrint, type BillPrintKind } from './BillPrint'
 import { operationsApi } from '@/services/operationsApi'
 import { patientApi } from '@/services/patientApi'
 import { formatMoney as money, moneyAmount, moneyDue, moneySum, moneyUnits, validPayment } from '@/utils/money'
-import type { Bill, BillItem, BillPaymentRequest, BillQuery, BillRefundRequest, BillStatus, BillTransaction, VisitType } from '@/types/operations'
+import type { Bill, BillItem, BillPaymentRequest, BillQuery, BillRefundRequest, BillStatus, BillTransaction, CashierAccount, Deposit, Settlement, VisitType } from '@/types/operations'
 
 const billStatusMeta: Record<BillStatus, { label: string; color: string }> = {
   UNSETTLED: { label: '待缴费', color: 'gold' },
@@ -45,6 +47,10 @@ export function OperationsPage() {
   const [voidOpen, setVoidOpen] = useState(false)
   const [voidReason, setVoidReason] = useState('')
   const [actionError, setActionError] = useState('')
+  const [financeOpen, setFinanceOpen] = useState(false)
+  const [printKind, setPrintKind] = useState<BillPrintKind>()
+  const invoiceMutation = useMutation({ mutationFn: (id: number) => operationsApi.issueInvoice(id), onSuccess: (bill) => { queryClient.setQueryData(['operations-bill', bill.id], bill) } })
+  const [financePage, setFinancePage] = useState({ settlements: 1, deposits: 1, accounts: 1 })
 
   const bills = useQuery({
     queryKey: ['operations-bills', page, pageSize, filters],
@@ -65,6 +71,9 @@ export function OperationsPage() {
     queryFn: () => operationsApi.listTransactions(selectedBillId!),
     enabled: selectedBillId !== undefined,
   })
+  const settlements = useQuery({ queryKey: ['operations-settlements', financePage.settlements], queryFn: () => operationsApi.querySettlements({ page: financePage.settlements, size: 20 }), enabled: financeOpen })
+  const deposits = useQuery({ queryKey: ['operations-deposits', financePage.deposits], queryFn: () => operationsApi.queryDeposits({ page: financePage.deposits, size: 20 }), enabled: financeOpen })
+  const accounts = useQuery({ queryKey: ['operations-accounts', financePage.accounts], queryFn: () => operationsApi.queryCashierAccounts({ page: financePage.accounts, size: 20 }), enabled: financeOpen })
   const refreshAfterBillAction = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['operations-bills'] }),
@@ -209,10 +218,15 @@ export function OperationsPage() {
     { title: '时间', dataIndex: 'transactionTime', width: 155, render: (value) => value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—' },
   ]
 
+  const printBill = (kind: BillPrintKind) => {
+    flushSync(() => setPrintKind(kind))
+    try { window.print() } finally { setPrintKind(undefined) }
+  }
   return <>
+    {printKind && billDetail.data && <BillPrint bill={billDetail.data} items={billItems.data || []} transactions={transactions.data || []} kind={printKind} />}
     <div className="page-heading patient-heading">
       <div><h1>收费与账单</h1><p>查询患者账单、应收状态及费用项目明细。</p></div>
-      <Button icon={<ReloadOutlined />} onClick={() => bills.refetch()}>刷新账单</Button>
+      <Space><Button onClick={() => setFinanceOpen(true)}>财务记录</Button><Button icon={<ReloadOutlined />} onClick={() => bills.refetch()}>刷新账单</Button></Space>
     </div>
     <section className="metric-grid operations-metrics" aria-label="当前页收费汇总">
       <Card size="small" className="metric-card"><div className="metric-label">当前页账单</div><div className="metric-value">{bills.data?.total ?? '—'}<small> 笔</small></div><div className="metric-note">按当前筛选条件</div></Card>
@@ -232,6 +246,9 @@ export function OperationsPage() {
       <Table<Bill> rowKey="id" size="small" columns={columns} dataSource={rows} loading={bills.isLoading} scroll={{ x: 1160 }} locale={{ emptyText: '当前条件下没有账单' }} pagination={{ current: page, pageSize, total: bills.data?.total || 0, showSizeChanger: true, showTotal: (total) => `共 ${total} 笔账单`, onChange: (nextPage, nextSize) => { setPage(nextPage); setPageSize(nextSize) } }} />
     </Card>
     <Drawer title="账单费用明细" width={820} open={selectedBillId !== undefined} onClose={() => setSelectedBillId(undefined)} extra={billDetail.data && <Space wrap>
+      <Button disabled={!billItems.isSuccess} icon={<PrinterOutlined />} onClick={() => printBill('items')}>打印费用清单</Button>
+      <Button loading={invoiceMutation.isPending} disabled={billDetail.data.billStatus !== 'SETTLED'} onClick={async () => { try { const issued = await invoiceMutation.mutateAsync(billDetail.data!.id); flushSync(() => setPrintKind('invoice')); window.print(); setPrintKind(undefined); queryClient.setQueryData(['operations-bill', issued.id], issued) } catch { setActionError('开票失败，请确认账单已结清并检查服务连接。') } }}>打印正式发票</Button>
+      <Button disabled={!transactions.isSuccess || !transactions.data?.some(t => t.transactionStatus === 'SUCCESS')} icon={<PrinterOutlined />} onClick={() => printBill('receipt')}>打印收据</Button>
       <Tag color={billStatusMeta[billDetail.data.billStatus]?.color}>{billStatusMeta[billDetail.data.billStatus]?.label || billDetail.data.billStatus}</Tag>
       {['UNSETTLED', 'PARTIAL'].includes(billDetail.data.billStatus) && <Button type="primary" onClick={openPayment}>登记收款</Button>}
       {moneyUnits(billDetail.data.paidAmount) > 0n && billDetail.data.billStatus !== 'CANCELLED' && <Button danger onClick={openRefund}>登记退费</Button>}
@@ -255,6 +272,17 @@ export function OperationsPage() {
       <h3 className="operations-detail-heading">收退款记录</h3>
       {transactions.isError && <Alert type="error" showIcon message="交易记录加载失败" />}
       {!transactions.isError && <Table<BillTransaction> rowKey="id" size="small" columns={transactionColumns} dataSource={transactions.data || []} loading={transactions.isLoading} pagination={false} scroll={{ x: 760 }} locale={{ emptyText: '暂无收退款记录' }} />}
+    </Drawer>
+    <Drawer title="财务记录与预交金" width={900} open={financeOpen} onClose={() => setFinanceOpen(false)}>
+      <h3 className="operations-detail-heading">结算记录</h3>
+      {settlements.isError && <Alert type="error" message="结算记录加载失败" action={<Button onClick={() => settlements.refetch()}>重试结算</Button>} />}
+      <Table<Settlement> rowKey="id" size="small" loading={settlements.isLoading} pagination={{ current: financePage.settlements, pageSize: 20, total: settlements.data?.total || 0, showSizeChanger: false, onChange: (page) => setFinancePage(p => ({ ...p, settlements: page })) }} dataSource={settlements.data?.records || []} columns={[{ title: '结算单号', dataIndex: 'settleNo' }, { title: '患者编号', dataIndex: 'patientId' }, { title: '总额', dataIndex: 'totalAmount', render: money }, { title: '自费', dataIndex: 'selfPayAmount', render: money }, { title: '状态', dataIndex: 'settleStatus' }]} />
+      <h3 className="operations-detail-heading">预交金记录</h3>
+      {deposits.isError && <Alert type="error" message="预交金记录加载失败" action={<Button onClick={() => deposits.refetch()}>重试预交金</Button>} />}
+      <Table<Deposit> rowKey="id" size="small" loading={deposits.isLoading} pagination={{ current: financePage.deposits, pageSize: 20, total: deposits.data?.total || 0, showSizeChanger: false, onChange: (page) => setFinancePage(p => ({ ...p, deposits: page })) }} dataSource={deposits.data?.records || []} columns={[{ title: '单号', dataIndex: 'depositNo' }, { title: '患者编号', dataIndex: 'patientId' }, { title: '金额', dataIndex: 'amount', render: money }, { title: '支付方式', dataIndex: 'payMethod' }, { title: '状态', dataIndex: 'depositStatus' }]} />
+      <h3 className="operations-detail-heading">收银员日结账户</h3>
+      {accounts.isError && <Alert type="error" message="日结账户加载失败" action={<Button onClick={() => accounts.refetch()}>重试日结账户</Button>} />}
+      <Table<CashierAccount> rowKey="id" size="small" loading={accounts.isLoading} pagination={{ current: financePage.accounts, pageSize: 20, total: accounts.data?.total || 0, showSizeChanger: false, onChange: (page) => setFinancePage(p => ({ ...p, accounts: page })) }} dataSource={accounts.data?.records || []} columns={[{ title: '账户号', dataIndex: 'accountNo' }, { title: '收银员', dataIndex: 'cashierName' }, { title: '日期', dataIndex: 'accountDate' }, { title: '总金额', dataIndex: 'totalAmount', render: money }, { title: '状态', dataIndex: 'accountStatus' }]} />
     </Drawer>
     <Modal title="登记收款" open={paymentOpen} onCancel={() => setPaymentOpen(false)} onOk={confirmPayment} okText="确认收款" cancelText="返回" confirmLoading={paymentMutation.isPending}>
       {actionError && <Alert type="error" showIcon message={actionError} style={{ marginBottom: 12 }} />}

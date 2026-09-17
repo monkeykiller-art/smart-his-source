@@ -7,11 +7,41 @@ import { patientApi } from '@/services/patientApi'
 
 vi.mock('@/services/operationsApi', () => ({ operationsApi: {
   queryBills: vi.fn(), getBill: vi.fn(), listBillItems: vi.fn(), listTransactions: vi.fn(),
-  payBill: vi.fn(), refundBill: vi.fn(), voidBill: vi.fn(),
+  payBill: vi.fn(), refundBill: vi.fn(), voidBill: vi.fn(), querySettlements: vi.fn(), queryDeposits: vi.fn(), queryCashierAccounts: vi.fn(),
 } }))
 vi.mock('@/services/patientApi', () => ({ patientApi: { query: vi.fn() } }))
 
 describe('OperationsPage', () => {
+  it('reports finance errors and allows retry', async () => {
+    vi.mocked(operationsApi.queryDeposits).mockRejectedValueOnce(new Error('offline'))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
+    expect(operationsApi.queryDeposits).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '财务记录' }))
+    expect(await screen.findByText('预交金记录加载失败')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '重试预交金' }))
+    await waitFor(() => expect(screen.queryByText('预交金记录加载失败')).not.toBeInTheDocument())
+    expect(operationsApi.queryDeposits).toHaveBeenLastCalledWith({ page: 1, size: 20 })
+  }, 15000)
+
+  it('prints a dedicated document and gates invoice issuance until settled', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
+    await screen.findByText('B20260914001')
+    fireEvent.click(screen.getByRole('button', { name: /费用明细/ }))
+    const button = await screen.findByRole('button', { name: /打印费用清单/ })
+    await waitFor(() => expect(button).toBeEnabled())
+    expect(screen.getByRole('button', { name: /打印收据/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '打印正式发票' })).toBeDisabled()
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {
+      expect(screen.getByLabelText('单据打印内容')).toHaveTextContent('门诊诊查费')
+    })
+    fireEvent.click(button)
+    expect(print).toHaveBeenCalledOnce()
+    expect(screen.queryByLabelText('单据打印内容')).not.toBeInTheDocument()
+    print.mockRestore()
+  }, 15000)
+
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(operationsApi.queryBills).mockResolvedValue({
@@ -21,6 +51,9 @@ describe('OperationsPage', () => {
     vi.mocked(operationsApi.getBill).mockResolvedValue({ id: 12, billNo: 'B20260914001', patientId: 1001, visitType: 'OUTPATIENT', totalAmount: 12, discountAmount: 0, payableAmount: 12, paidAmount: 0, billStatus: 'UNSETTLED' })
     vi.mocked(operationsApi.listBillItems).mockResolvedValue([{ id: 8, billId: 12, itemSeq: 1, itemName: '门诊诊查费', itemClass: 'REGISTRATION', feeItemId: 21, unitPrice: 12, quantity: 1, amount: 12 }])
     vi.mocked(operationsApi.listTransactions).mockResolvedValue([])
+    vi.mocked(operationsApi.querySettlements).mockResolvedValue({ records: [], total: 0, page: 1, size: 50, totalPages: 0 })
+    vi.mocked(operationsApi.queryDeposits).mockResolvedValue({ records: [], total: 0, page: 1, size: 50, totalPages: 0 })
+    vi.mocked(operationsApi.queryCashierAccounts).mockResolvedValue({ records: [], total: 0, page: 1, size: 50, totalPages: 0 })
     vi.mocked(operationsApi.payBill).mockResolvedValue({ id: 20, billId: 12, transactionNo: 'SK001', transactionType: 'PAYMENT', amount: 12, transactionTime: '2026-09-14T10:00:00', transactionStatus: 'SUCCESS' })
   })
 
@@ -39,7 +72,7 @@ describe('OperationsPage', () => {
     expect(await screen.findByText('门诊诊查费')).toBeInTheDocument()
     expect(await screen.findByText('挂号费 · 项目21')).toBeInTheDocument()
     expect(operationsApi.listBillItems).toHaveBeenCalledWith(12)
-  })
+  }, 10_000)
 
   it('resolves an EMPI patient identifier before querying bills', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

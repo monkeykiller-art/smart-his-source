@@ -272,3 +272,13 @@ body, .ant-typography, .ant-form, .ant-table, .ant-menu, .ant-input, .ant-select
   .clinical-layout { grid-template-columns: 1fr; }
   .pharma-metrics, .pharma-grid-form { grid-template-columns: 1fr; }
 }
+
+.billing-print-document { display: none; }
+@media print {
+  body:has(> .billing-print-document) > :not(.billing-print-document) { display: none !important; }
+  .billing-print-document { display: block !important; color: #000; background: #fff; padding: 12mm; font-size: 12pt; }
+  .billing-print-document table { width: 100%; border-collapse: collapse; }
+  .billing-print-document th, .billing-print-document td { border: 1px solid #444; padding: 6px; text-align: left; overflow-wrap: anywhere; }
+  .billing-print-document thead { display: table-header-group; }
+  .billing-print-document tr { break-inside: avoid; }
+}
