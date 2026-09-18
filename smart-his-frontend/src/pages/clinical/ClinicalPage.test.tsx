@@ -10,6 +10,7 @@ import { recordTemplates } from './clinicalTemplates'
 vi.mock('@/services/clinicalApi', () => ({ clinicalApi: {
   listRecordsByEncounter: vi.fn(), listDiagnoses: vi.fn(), listOrders: vi.fn(), listExamRequests: vi.fn(), searchIcd10: vi.fn(),
   createRecord: vi.fn(), updateRecord: vi.fn(), signRecord: vi.fn(), createDiagnosis: vi.fn(), deleteDiagnosis: vi.fn(), createOrder: vi.fn(), createExamRequest: vi.fn(), cancelOrder: vi.fn(), submitOrder: vi.fn(),
+  listCommonPhrases: vi.fn(), createCommonPhrase: vi.fn(), updateCommonPhrase: vi.fn(), deleteCommonPhrase: vi.fn(),
 } }))
 vi.mock('@/services/patientApi', () => ({ patientApi: { getById: vi.fn() } }))
 vi.mock('@/services/registrationApi', () => ({ registrationApi: {
@@ -32,6 +33,7 @@ describe('ClinicalPage', () => {
     vi.mocked(clinicalApi.listDiagnoses).mockResolvedValue([])
     vi.mocked(clinicalApi.listOrders).mockResolvedValue([])
     vi.mocked(clinicalApi.listExamRequests).mockResolvedValue([])
+    vi.mocked(clinicalApi.listCommonPhrases).mockResolvedValue([])
   })
 
   it('shows patient safety information and locks clinical editing before the encounter starts', async () => {
@@ -66,5 +68,12 @@ describe('ClinicalPage', () => {
   it('defines reusable templates with the core outpatient fields', () => {
     expect(recordTemplates.HYPERTENSION).toMatchObject({ title: '高血压复诊病历', chiefComplaint: '高血压复诊', diagnosisDesc: '原发性高血压' })
     expect(recordTemplates.COMMON_COLD?.treatmentPlan).toContain('对症治疗')
+  })
+
+  it('includes common phrases API methods in clinicalApi', () => {
+    expect(clinicalApi.listCommonPhrases).toBeDefined()
+    expect(clinicalApi.createCommonPhrase).toBeDefined()
+    expect(clinicalApi.updateCommonPhrase).toBeDefined()
+    expect(clinicalApi.deleteCommonPhrase).toBeDefined()
   })
 })

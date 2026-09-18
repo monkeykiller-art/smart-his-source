@@ -8,7 +8,7 @@ import { clinicalApi } from '@/services/clinicalApi'
 import { patientApi } from '@/services/patientApi'
 import { registrationApi } from '@/services/registrationApi'
 import { useAuthStore } from '@/stores/authStore'
-import type { ClinicalOrder, Diagnosis, ExamRequest, Icd10Item, MedicalRecord, MedicalRecordUpdateRequest } from '@/types/clinical'
+import type { ClinicalOrder, CommonPhrase, Diagnosis, ExamRequest, Icd10Item, MedicalRecord, MedicalRecordUpdateRequest } from '@/types/clinical'
 import { maskPhone } from '@/utils/maskSensitive'
 import { canCloseEncounter, ordersForEncounter } from './clinicalWorkflow'
 import { recordTemplates } from './clinicalTemplates'
@@ -99,6 +99,21 @@ export function ClinicalPage() {
   const icdOptions = useQuery({
     queryKey: ['icd10', icdKeyword], queryFn: () => clinicalApi.searchIcd10(icdKeyword), enabled: diagnosisOpen && icdKeyword.trim().length > 0,
   })
+  const commonPhrases = useQuery({
+    queryKey: ['common-phrases'], queryFn: () => clinicalApi.listCommonPhrases(), enabled: recordOpen,
+  })
+  const phraseFieldMap: Record<string, keyof RecordFormValues> = {
+    CHIEF_COMPLAINT: 'chiefComplaint', PRESENT_ILLNESS: 'presentIllness', PHYSICAL_EXAM: 'physicalExam', TREATMENT_PLAN: 'treatmentPlan',
+  }
+  const phraseFieldLabel: Record<string, string> = {
+    CHIEF_COMPLAINT: '主诉', PRESENT_ILLNESS: '现病史', PHYSICAL_EXAM: '查体', TREATMENT_PLAN: '诊疗计划',
+  }
+  const insertPhrase = (phrase: CommonPhrase) => {
+    const field = phraseFieldMap[phrase.phraseType]
+    if (!field) return
+    const current = (recordForm.getFieldValue(field) as string) || ''
+    recordForm.setFieldsValue({ [field]: current ? `${current}\n${phrase.phraseContent}` : phrase.phraseContent })
+  }
   const encounterOrders = useMemo(() => ordersForEncounter(orders.data || [], encounterId), [orders.data, encounterId])
   const canClose = canCloseEncounter(currentEncounterStatus, records.data || [], diagnoses.data || [])
 
@@ -290,6 +305,15 @@ export function ClinicalPage() {
       <Form<RecordFormValues> form={recordForm} layout="vertical" onFinish={(values) => saveRecord.mutate(values)}>
         {!editingRecord && <Form.Item label="病历模板"><Select allowClear placeholder="选择模板后自动填充，可继续修改" options={[{ value: 'COMMON_COLD', label: '普通感冒' }, { value: 'HYPERTENSION', label: '高血压复诊' }, { value: 'DIABETES', label: '糖尿病复诊' }]} onChange={(value) => value && recordForm.setFieldsValue({ ...recordTemplates[value] })} /></Form.Item>}
         {!editingRecord && draftSavedAt && <Alert type="info" showIcon message={draftSavedAt} description="填写内容会自动保存在当前浏览器，保存病历后自动清除。" style={{ marginBottom: 12 }} />}
+        {commonPhrases.data && commonPhrases.data.length > 0 && <Card size="small" title="常用短语" style={{ marginBottom: 12 }} styles={{ body: { padding: '8px 12px' } }}>
+          {Object.entries(phraseFieldLabel).filter(([type]) => commonPhrases.data!.some((p) => p.phraseType === type)).map(([type, label]) => (
+            <div key={type} style={{ marginBottom: 4 }}><span className="clinical-secondary" style={{ marginRight: 8 }}>{label}：</span>
+              {commonPhrases.data!.filter((p) => p.phraseType === type).map((phrase) => (
+                <Tag key={phrase.id} style={{ cursor: 'pointer', marginBottom: 4 }} onClick={() => insertPhrase(phrase)} title={phrase.phraseContent}>{phrase.phraseName}</Tag>
+              ))}
+            </div>
+          ))}
+        </Card>}
         <div className="clinical-record-form">
           <Form.Item name="title" label="病历标题"><Input /></Form.Item>
           <Form.Item name="chiefComplaint" label="主诉" rules={[{ required: true, message: '请输入患者主诉' }]}><Input.TextArea rows={2} placeholder="症状、部位和持续时间" /></Form.Item>

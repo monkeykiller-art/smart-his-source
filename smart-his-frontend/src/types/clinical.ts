@@ -153,3 +153,31 @@ export interface ClinicalOrderCreateRequest {
   remark?: string
   items: ClinicalOrderItem[]
 }
+
+export interface CommonPhrase {
+  id: number
+  phraseName: string
+  phraseContent: string
+  phraseType: string
+  deptId?: number
+  userId?: number
+  sortOrder?: number
+}
+
+export interface CommonPhraseCreateRequest {
+  phraseName: string
+  phraseContent: string
+  phraseType: string
+  deptId?: number
+  userId?: number
+  sortOrder?: number
+}
+
+export interface CommonPhraseUpdateRequest {
+  phraseName: string
+  phraseContent: string
+  phraseType: string
+  deptId?: number
+  userId?: number
+  sortOrder?: number
+}

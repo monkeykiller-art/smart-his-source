@@ -1,6 +1,6 @@
 import { http } from './http'
 import type { ApiResponse } from '@/types/api'
-import type { ClinicalOrder, ClinicalOrderCreateRequest, Diagnosis, DiagnosisCreateRequest, ExamRequest, ExamRequestCreateRequest, Icd10Item, MedicalRecord, MedicalRecordCreateRequest, MedicalRecordUpdateRequest } from '@/types/clinical'
+import type { ClinicalOrder, ClinicalOrderCreateRequest, CommonPhrase, CommonPhraseCreateRequest, CommonPhraseUpdateRequest, Diagnosis, DiagnosisCreateRequest, ExamRequest, ExamRequestCreateRequest, Icd10Item, MedicalRecord, MedicalRecordCreateRequest, MedicalRecordUpdateRequest } from '@/types/clinical'
 
 export const clinicalApi = {
   async listRecords(patientId: number) {
@@ -71,5 +71,25 @@ export const clinicalApi = {
   async submitOrder(id: number) {
     const response = await http.put<ApiResponse<ClinicalOrder>>(`/clinical/orders/${id}/submit`)
     return response.data.data
+  },
+  async listCommonPhrases(phraseType?: string, deptId?: number, userId?: number, keyword?: string) {
+    const params: Record<string, any> = { pageNum: 1, pageSize: 100 }
+    if (phraseType) params.phraseType = phraseType
+    if (deptId) params.deptId = deptId
+    if (userId) params.userId = userId
+    if (keyword) params.keyword = keyword
+    const response = await http.get<ApiResponse<{ records: CommonPhrase[] }>>('/clinical/common-phrases', { params })
+    return response.data.data.records
+  },
+  async createCommonPhrase(request: CommonPhraseCreateRequest) {
+    const response = await http.post<ApiResponse<CommonPhrase>>('/clinical/common-phrases', request)
+    return response.data.data
+  },
+  async updateCommonPhrase(id: number, request: CommonPhraseUpdateRequest) {
+    const response = await http.put<ApiResponse<CommonPhrase>>(`/clinical/common-phrases/${id}`, request)
+    return response.data.data
+  },
+  async deleteCommonPhrase(id: number) {
+    await http.delete<ApiResponse<void>>(`/clinical/common-phrases/${id}`)
   },
 }
