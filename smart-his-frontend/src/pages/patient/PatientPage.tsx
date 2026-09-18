@@ -23,7 +23,7 @@ export function PatientPage() {
   const [messageApi, messageContext] = message.useMessage()
   const queryClient = useQueryClient()
 
-  const patients = useQuery({ queryKey: ['patients', page, size, search], queryFn: () => patientApi.query({ page, size, keyword: search || undefined }) })
+  const patients = useQuery({ queryKey: ['patients', page, size, search], queryFn: () => patientApi.search({ page, size, keyword: search || undefined }) })
   const createPatient = useMutation({
     mutationFn: patientApi.create,
     onSuccess: async (patient) => {
@@ -35,7 +35,7 @@ export function PatientPage() {
     onError: () => messageApi.error('患者建档失败，请检查证件是否重复或服务是否可用。'),
   })
   const updatePatient = useMutation({
-    mutationFn: ({ id, request }: { id: number; request: PatientUpdateRequest }) => patientApi.update(id, request),
+    mutationFn: ({ id, request }: { id: Patient['id']; request: PatientUpdateRequest }) => patientApi.update(id, request),
     onSuccess: async (patient) => {
       messageApi.success(`患者 ${patient.name} 的资料已更新`)
       setEditing(null)
@@ -84,9 +84,9 @@ export function PatientPage() {
       {messageContext}
       <div className="page-heading patient-heading"><div><h1>患者服务</h1><p>管理患者主索引、身份信息和就诊联系方式。</p></div><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>患者建档</Button></div>
       <Card className="patient-table-card">
-        <div className="table-toolbar"><Input allowClear value={keyword} onChange={(event) => setKeyword(event.target.value)} onPressEnter={submitSearch} prefix={<SearchOutlined />} placeholder="搜索姓名、EMPI、证件号或手机号" /><Button onClick={submitSearch}>查询</Button></div>
+        <div className="table-toolbar"><Input allowClear value={keyword} onChange={(event) => setKeyword(event.target.value)} onPressEnter={submitSearch} prefix={<SearchOutlined />} placeholder="搜索系统 ID、EMPI、姓名、证件号或手机号" /><Button onClick={submitSearch}>查询</Button></div>
         {patients.isError && <Alert type="error" showIcon message="患者列表加载失败" description="请确认网关和患者服务已经启动。" style={{ marginBottom: 16 }} />}
-        <Table<Patient> rowKey="id" columns={columns} dataSource={patients.data?.records || []} loading={patients.isLoading} scroll={{ x: 1080 }} pagination={{ current: page, pageSize: size, total: patients.data?.total || 0, showSizeChanger: true, showTotal: (total) => `共 ${total} 位患者`, onChange: (nextPage, nextSize) => { setPage(nextPage); setSize(nextSize) } }} />
+        <Table<Patient> rowKey="id" columns={columns} dataSource={patients.data?.records || []} loading={patients.isLoading} scroll={{ x: 1080 }} locale={{ emptyText: '未找到符合条件的患者' }} pagination={{ current: page, pageSize: size, total: patients.data?.total || 0, showSizeChanger: true, showTotal: (total) => `共 ${total} 位患者`, onChange: (nextPage, nextSize) => { setPage(nextPage); setSize(nextSize) } }} />
       </Card>
 
       <Modal title="新建患者档案" open={createOpen} width={720} onCancel={() => setCreateOpen(false)} onOk={() => form.submit()} confirmLoading={createPatient.isPending} okText="确认建档" cancelText="取消" destroyOnHidden>

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigInteger;
 import java.util.List;
 
 @Slf4j
@@ -150,10 +151,21 @@ public class PatientServiceImpl implements PatientService {
         LambdaQueryWrapper<Patient> query = new LambdaQueryWrapper<>();
         query.eq(Patient::getDeleted, 0);
         if (StringUtils.hasText(request.getKeyword())) {
-            query.and(w -> w.like(Patient::getName, request.getKeyword())
-                    .or().like(Patient::getNamePinyin, request.getKeyword())
-                    .or().like(Patient::getPhone, request.getKeyword())
-                    .or().like(Patient::getEmpiNo, request.getKeyword()));
+            String keyword = request.getKeyword().trim();
+            String literalKeyword = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+            query.and(w -> {
+                w.like(Patient::getName, literalKeyword)
+                        .or().like(Patient::getNamePinyin, literalKeyword)
+                        .or().like(Patient::getPhone, literalKeyword)
+                        .or().like(Patient::getEmpiNo, literalKeyword)
+                        .or().eq(Patient::getIdNo, keyword);
+                if (keyword.matches("[0-9]{1,19}")) {
+                    BigInteger patientId = new BigInteger(keyword);
+                    if (patientId.signum() > 0 && patientId.bitLength() < 64) {
+                        w.or().eq(Patient::getId, patientId.longValue());
+                    }
+                }
+            });
         }
         if (StringUtils.hasText(request.getIdType())) {
             query.eq(Patient::getIdType, request.getIdType());

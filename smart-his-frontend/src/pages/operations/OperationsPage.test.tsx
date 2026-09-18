@@ -9,7 +9,7 @@ vi.mock('@/services/operationsApi', () => ({ operationsApi: {
   queryBills: vi.fn(), getBill: vi.fn(), listBillItems: vi.fn(), listTransactions: vi.fn(),
   payBill: vi.fn(), refundBill: vi.fn(), voidBill: vi.fn(), querySettlements: vi.fn(), queryDeposits: vi.fn(), queryCashierAccounts: vi.fn(),
 } }))
-vi.mock('@/services/patientApi', () => ({ patientApi: { query: vi.fn() } }))
+vi.mock('@/services/patientApi', () => ({ patientApi: { search: vi.fn() } }))
 
 describe('OperationsPage', () => {
   it('reports finance errors and allows retry', async () => {
@@ -44,6 +44,7 @@ describe('OperationsPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(patientApi.search).mockReset().mockResolvedValue({ records: [{ id: 1001, empiNo: 'EM20260915000001', name: '张三' }], total: 1, page: 1, size: 2, totalPages: 1 } as never)
     vi.mocked(operationsApi.queryBills).mockResolvedValue({
       records: [{ id: 12, billNo: 'B20260914001', patientId: 1001, visitType: 'OUTPATIENT', totalAmount: 12, discountAmount: 0, payableAmount: 12, paidAmount: 0, billStatus: 'UNSETTLED', createdTime: '2026-09-14T09:30:00' }],
       total: 1, page: 1, size: 20, totalPages: 1,
@@ -80,12 +81,52 @@ describe('OperationsPage', () => {
     await screen.findByText('B20260914001')
     vi.mocked(operationsApi.queryBills).mockClear()
 
-    vi.mocked(patientApi.query).mockResolvedValue({ records: [{ id: 1001, empiNo: 'EM20260915000001', name: '张三' }], total: 1, page: 1, size: 2, totalPages: 1 } as never)
+    vi.mocked(patientApi.search).mockResolvedValue({ records: [{ id: 1001, empiNo: 'EM20260915000001', name: '张三' }], total: 1, page: 1, size: 2, totalPages: 1 } as never)
     fireEvent.change(screen.getByRole('textbox', { name: '患者编号' }), { target: { value: 'EM20260915000001' } })
     fireEvent.click(screen.getByRole('button', { name: /查询/ }))
-    await waitFor(() => expect(patientApi.query).toHaveBeenCalledWith({ page: 1, size: 2, keyword: 'EM20260915000001' }))
+    await waitFor(() => expect(patientApi.search).toHaveBeenCalledWith({ page: 1, size: 2, keyword: 'EM20260915000001' }))
     await waitFor(() => expect(operationsApi.queryBills).toHaveBeenLastCalledWith(expect.objectContaining({ patientId: 1001 })))
   })
+
+  it.each(['2099000000000000001', '13800138000', '110101199001011234'])('resolves numeric keyword %s instead of treating it as a bill patient ID', async keyword => {
+    vi.mocked(patientApi.search).mockResolvedValue({ records: [{ id: '2099000000000000001' }], total: '1', page: 1, size: 2, totalPages: 1 } as never)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
+    await screen.findByText('B20260914001', {}, { timeout: 5000 })
+    fireEvent.change(screen.getByRole('textbox', { name: '患者编号' }), { target: { value: keyword } })
+    fireEvent.click(screen.getByRole('button', { name: /查询/ }))
+    await waitFor(() => expect(patientApi.search).toHaveBeenCalledWith({ page: 1, size: 2, keyword }), { timeout: 5000 })
+    await waitFor(() => expect(operationsApi.queryBills).toHaveBeenLastCalledWith(expect.objectContaining({ patientId: '2099000000000000001' })), { timeout: 5000 })
+    client.clear()
+  }, 15000)
+
+  it.each([['0', '未找到患者'], ['2', '匹配到多位患者']])('does not query new bills for a lookup with %s matches', async (total, message) => {
+    vi.mocked(patientApi.search).mockResolvedValue({ records: total === '0' ? [] : [{ id: 1 }, { id: 2 }], total, page: 1, size: 2 } as never)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
+    await screen.findByText('B20260914001', {}, { timeout: 5000 })
+    vi.mocked(operationsApi.queryBills).mockClear()
+    fireEvent.change(screen.getByRole('textbox', { name: '患者编号' }), { target: { value: '张三' } })
+    fireEvent.click(screen.getByRole('button', { name: /查询/ }))
+    expect(await screen.findByText(new RegExp(message), {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(operationsApi.queryBills).not.toHaveBeenCalled()
+    client.clear()
+  }, 15000)
+
+  it('reports failed patient resolution and can reset to all pending bills', async () => {
+    vi.mocked(patientApi.search).mockRejectedValueOnce(new Error('offline'))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
+    await screen.findByText('B20260914001', {}, { timeout: 5000 })
+    fireEvent.change(screen.getByRole('textbox', { name: '患者编号' }), { target: { value: 'EMPI001' } })
+    fireEvent.click(screen.getByRole('button', { name: /查询/ }))
+    expect(await screen.findByText('患者查询失败，请检查患者服务连接。', {}, { timeout: 5000 })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /重\s*置/ }))
+    expect(screen.getByRole('textbox', { name: '患者编号' })).toHaveValue('')
+    expect(screen.queryByText('患者查询失败，请检查患者服务连接。')).not.toBeInTheDocument()
+    expect(operationsApi.queryBills).toHaveBeenLastCalledWith({ page: 1, size: 20, billStatus: 'UNSETTLED' })
+    client.clear()
+  }, 15000)
 
   it('requires cashier confirmation and sends the payment amount with an idempotency key', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })

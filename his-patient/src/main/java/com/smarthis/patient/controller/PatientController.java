@@ -38,6 +38,11 @@ public class PatientController {
         return ApiResponse.ok(patientService.update(id, request));
     }
 
+    @GetMapping("/search")
+    public ApiResponse<PageResult<PatientVo>> search(PatientQueryRequest request) {
+        return ApiResponse.ok(patientService.query(request));
+    }
+
     @GetMapping
     public ApiResponse<PageResult<PatientVo>> query(PatientQueryRequest request) {
         return ApiResponse.ok(patientService.query(request));

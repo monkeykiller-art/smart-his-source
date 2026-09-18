@@ -50,7 +50,7 @@ export function RegistrationPage() {
   })
   const patients = useQuery({
     queryKey: ['patients', 'registration-options', patientKeyword],
-    queryFn: () => patientApi.query({ page: 1, size: 50, keyword: patientKeyword || undefined }),
+    queryFn: () => patientApi.search({ page: 1, size: 50, keyword: patientKeyword || undefined }),
     enabled: createOpen,
   })
 
@@ -147,7 +147,7 @@ export function RegistrationPage() {
     <Modal title="新建门诊挂号" open={createOpen} onCancel={() => { setCreateOpen(false); setPatientKeyword(''); form.resetFields() }} onOk={() => form.submit()} okText="确认挂号" cancelText="取消" confirmLoading={createRegistration.isPending} destroyOnHidden>
       <Form<RegistrationCreateRequest> form={form} layout="vertical" initialValues={{ regSource: 'WINDOW' }} onFinish={(values) => createRegistration.mutate(values)}>
         <Form.Item name="patientId" label="患者" rules={[{ required: true, message: '请选择患者' }]}>
-          <Select showSearch filterOption={false} onSearch={(value) => setPatientKeyword(value.trim())} loading={patients.isLoading} placeholder="输入姓名、患者主索引、证件号或手机号" notFoundContent={patients.isError ? '患者服务连接失败' : '未找到患者'} options={(patients.data?.records || []).map((item) => ({ value: item.id, label: `${item.name} · ${item.empiNo}` }))} />
+          <Select showSearch filterOption={false} onSearch={(value) => setPatientKeyword(value.trim())} loading={patients.isLoading} placeholder="输入系统 ID、EMPI、姓名、证件号或手机号" notFoundContent={patients.isError ? '患者服务连接失败' : '未找到患者'} options={(patients.data?.records || []).map((item) => ({ value: item.id, label: `${item.name} · ${item.empiNo}` }))} />
         </Form.Item>
         <Form.Item name="scheduleId" label="排班号源" rules={[{ required: true, message: '请选择排班号源' }]}>
           <Select showSearch optionFilterProp="label" placeholder="选择科室、医生和时段" options={availableSchedules.map((item) => ({ value: item.id, label: `${item.deptName} · ${item.doctorName} · ${periodText[item.timePeriod] || item.timePeriod} · 余 ${item.availableQuota} 号 · ¥${Number(item.regFee).toFixed(2)}` }))} />

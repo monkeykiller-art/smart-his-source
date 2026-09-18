@@ -43,7 +43,7 @@ export const m8Api = {
     const response = await http.get<ApiResponse<EmergencyTriage[]>>('/emergency/triage')
     return response.data.data
   },
-  async createTriage(request: { patientId: number; triageLevel: number; chiefComplaint: string; vitalSigns?: string; triageNurseId: number; triageNurseName?: string }): Promise<EmergencyTriage> {
+  async createTriage(request: { patientId: string | number; triageLevel: number; chiefComplaint: string; vitalSigns?: string; triageNurseId: number; triageNurseName?: string }): Promise<EmergencyTriage> {
     const response = await http.post<ApiResponse<EmergencyTriage>>('/emergency/triage', request)
     return response.data.data
   },

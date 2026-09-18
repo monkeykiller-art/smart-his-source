@@ -1,6 +1,6 @@
 # Smart HIS 后续功能计划
 
-> 截至 2026-09-18，M4–M9 主体功能已实现并通过 API 验收（70 个前端测试全通过，150+ 后端 API 均返回 200）。本文档梳理尚未完成的功能缺口、技术债务和可增强项，按优先级排列。
+> 更新于 2026-09-18。第 1 周技术债务已处理，第 2 周患者统一查询与测试补全已实现；本轮前端 24 个文件、137 项测试通过，后端 his-common / his-patient 共 71 项测试通过（无跳过），Lint 与生产构建通过。本轮验证不等同于全项目 API 或迁移验收，第 3–5 周仍待实施。
 
 ---
 
@@ -13,7 +13,7 @@
 | 病历模板管理 | 后端已完成（RecordTemplateController CRUD + 科室过滤） | 前端 ClinicalPage 已接入模板选择，基本可用 | — 已完成 |
 | **常用短语** | 未实现 | 新增 `cli_common_phrase` 表（科室/个人两级），后端 CRUD 接口，前端病历编辑器中插入主诉/现病史/查体/诊疗计划短语 | 中 |
 | **病历自动保存与版本** | 未实现 | 新增 `cli_record_version` 表（record_id, version_no, content_json, created_by, created_time），后端定时保存草稿接口（`POST /api/clinical/records/draft`），前端 debounce 自动调用，恢复草稿接口，签署后锁定版本 | 中 |
-| **患者统一查询** | 部分实现（按证件号 `/idno` 和列表分页） | 新增统一搜索接口 `GET /api/patients/search?keyword=xxx`，同时匹配系统 ID、EMPI、姓名、证件号、手机号；运营收费页从 EMPI 解析到系统患者 ID | 高 |
+| **患者统一查询** | 已实现 | `GET /api/patient/patients/search?keyword=xxx` 支持系统 ID、EMPI、姓名/拼音、证件号、手机号；患者、挂号、收费页面统一接入；收费拒绝无匹配/多匹配并保留长 ID | — 已完成 |
 
 ### 1.2 M5：检验检查与处方闭环（部分未完成）
 
@@ -21,7 +21,7 @@
 |------|----------|-----------|--------|
 | 检验申请与结果回写 | 后端已完成（ExamRequestController 全生命周期 + 危急值确认） | 前端 ClinicalPage 已接入检查申请，基本可用 | — 已完成 |
 | **PACS/外部检查对接** | 仅预留概念，无字段 | `cli_exam_request` 增加 `external_exam_id`、`pacs_url`、`report_attachment_url` 字段（V4 迁移），后端更新接口支持写入，前端报告查看页展示链接 | 低 |
-| 电子处方与用药校验 | 后端已完成（药品安全知识库 + RxReview 审核流程） | 前端 PharmaPage 已完成，70 个测试通过 | — 已完成 |
+| 电子处方与用药校验 | 后端已完成（药品安全知识库 + RxReview 审核流程） | 前端 PharmaPage 已接入，相关测试纳入前端全量回归 | — 已完成 |
 
 ### 1.3 M7：收费医保（部分未完成）
 
@@ -34,30 +34,32 @@
 
 ## 二、技术债务与安全加固
 
-### 2.1 网关安全（高优先级）
+### 2.1 网关安全（第 1 周已处理）
 
-| 问题 | 影响 | 修复方案 |
-|------|------|---------|
-| **DEBUG 日志泄露 JWT** | `his-gateway/application.yml` 的 `com.smarthis: DEBUG` + `org.springframework.cloud.gateway: DEBUG` 将完整 `Authorization: Bearer <JWT>` 写入 `.run/his-gateway.log` | 将日志级别改为 `INFO`，仅对 `org.springframework.security` 保留 `DEBUG`；或在网关过滤器中对 `Authorization` header 做脱敏处理 |
-| **CORS 允许所有来源** | `allowedOriginPatterns: "*"` + `allowCredentials: true` 在生产环境会被浏览器拒绝，且存在 CSRF 风险 | 改为配置式白名单 `allowedOriginPatterns: http://localhost:*,https://his.example.com`，通过环境变量注入 |
-| **Emergency 缺健康路由** | 其余 6 个服务都有 `his-*-health` 网关路由，emergency 只有业务路由，`/api/emergency/health` 返回 404 | 在网关 `application.yml` 增加 `his-emergency-health` 路由（`SetPath=/health`，`order: -1`）；Dashboard 工作台纳入 emergency 服务监控 |
+| 问题 | 当前状态 |
+|------|----------|
+| **DEBUG 日志泄露 JWT** | 应用及 Gateway 日志级别已改为 `INFO` |
+| **CORS 允许所有来源** | 已使用 `HIS_CORS_ALLOWED_ORIGINS` 配置允许来源，默认仅 localhost；部署时须设置实际可信来源 |
+| **Emergency 缺健康路由** | 已增加 `/api/emergency/health` 路由（`SetPath=/health`，`order: -1`），工作台已纳入急诊监控 |
 
-### 2.2  dormant 模块清理（低优先级）
+### 2.2 dormant 模块清理（第 1 周已处理）
 
-`his-cdss`、`his-collaboration`、`his-drg`、`his-platform`、`his-resource` 的 `target/` 目录仍残留编译产物，但源码已删除。清理这些空目录避免混淆。
+已清理 `his-cdss`、`his-collaboration`、`his-drg`、`his-platform`、`his-resource` 的遗留 `target/` 编译产物，未删除业务源码。
 
 ### 2.3 前端测试覆盖缺口
 
-以下页面/服务缺少单元测试：
+第 2 周新增以下五个测试文件，覆盖现有功能，不将尚未实现的页面算作已测：
 
-| 缺失测试 | 影响 | 建议 |
-|----------|------|------|
-| `authApi.ts` 无测试 | 登录/刷新/MFA 流程无自动化保障 | 补充 login、refresh、mfaSetup、mfaVerify 的 adapter mock 测试 |
-| `LoginPage.tsx` 无测试 | 登录表单交互（错误提示、MFA 弹窗）无保障 | 补充登录失败提示、MFA 二维码展示测试 |
-| `PatientPage.tsx` 无测试 | 患者创建/编辑/搜索交互无保障 | 补充表单验证、搜索结果展示测试 |
-| `RegistrationPage.tsx` 无测试 | 挂号流程无保障 | 补充科室/医生选择、时段冲突提示测试 |
-| `InpatientEmergencyPage.tsx` 无测试 | 住院/急诊 UI 无保障 | 补充入院/转科/出院/分诊交互测试 |
-| `AnalyticsSecurityPage.tsx` 无测试 | 报表查询/导出无保障 | 补充日期筛选、权限降级提示测试 |
+| 页面/服务 | 状态 | 已覆盖范围 |
+|-----------|------|------------|
+| `authApi.ts` | 已补充 7 项 | 登录/登出 HTTP 契约、OTP 传递、异常响应；刷新逻辑保留既有 `http.test.ts` 覆盖 |
+| `LoginPage.tsx` | 已补充 13 项 | 必填、OTP 前导零、失败重试、防重复提交、登录后返回原页面 |
+| `PatientPage.tsx` | 已补充 9 项 | 五类标识搜索、脱敏、建档/编辑校验、失败保留表单、长 ID |
+| `RegistrationPage.tsx` | 已补充 10 项 | 科室/医生筛选、号源状态、患者搜索、长 ID、冲突与失败重试 |
+| `InpatientEmergencyPage.tsx` | 已补充 16 项 | 已有待入院记录办理入院、转科转床、出院归档、权限、分诊与状态流转、长 ID 与非法输入 |
+| `AnalyticsSecurityPage.tsx` | 待补充 | 日期筛选、权限降级提示、报表查询/导出，随第 4 周推进 |
+
+同时扩充 `patientApi.test.ts` 和 `OperationsPage.test.tsx`。MFA 二维码/设置弹窗、前端新建住院登记不属于当前已实现与已测范围。
 
 ---
 
@@ -145,16 +147,18 @@ jobs:
 ## 五、建议执行顺序
 
 ```
-第 1 周：技术债务清理
+第 1 周：技术债务清理（已完成）
   ├── 修复网关 DEBUG 日志泄露 JWT
   ├── 修复 CORS 配置
   ├── 增加 emergency 健康路由 + 工作台监控
   └── 清理 dormant 模块 target/
 
-第 2 周：患者统一查询 + 前端测试补全
-  ├── 统一搜索接口 GET /api/patients/search
-  ├── 前端 authApi / LoginPage / PatientPage 测试
-  └── 前端 RegistrationPage / InpatientEmergencyPage 测试
+第 2 周：患者统一查询 + 前端测试补全（已实现）
+  ├── 统一搜索接口 GET /api/patient/patients/search
+  ├── 患者、挂号、收费页面接入并保留长 ID
+  ├── authApi / LoginPage / PatientPage 测试
+  ├── RegistrationPage / InpatientEmergencyPage 测试
+  └── 修复登录返回目标页竞争和急诊分诊长 ID 舍入
 
 第 3 周：病历常用短语 + 自动保存
   ├── cli_common_phrase 表 + CRUD 接口
@@ -178,6 +182,14 @@ jobs:
   └── 数据导入工具
 ```
 
+### 第 2 周验收记录（2026-09-18）
+
+- 自动化：前端 `npm test -- --maxWorkers=2`，24 个文件、137 项全部通过；`npm run lint` 无警告或错误；`npm run build` 通过，仅保留已有的大于 500 kB chunk 提示。
+- 后端：`his-common` / `his-patient` 的 Maven `test` 共 71 项通过，Failures / Errors / Skipped 均为 0；包含搜索 SQL 条件、长 ID 边界及新旧路由参数绑定测试。本轮无数据库迁移，未执行全模块或 Flyway 验收。
+- 真实只读浏览器验证：使用隔离网关和只读患者服务，登录后返回原患者页；五类标识均能查询同一现有患者；长 ID / EMPI 页面搜索、空结果提示、患者详情及编辑入口正常；收费手机号解析出的患者 ID 保持字符串；挂号患者选择使用统一搜索。
+- 边界验证：浏览器模拟多匹配及患者服务失败，均显示明确提示且不追加错误账单查询，重置恢复正常；分诊表单拒绝科学计数法输入，19 位 ID 保持原值。
+- 验收边界：浏览器未提交建档、挂号、入院、出院或急诊分诊等临床写操作，写入成功/失败与状态流转通过传输层模拟的自动化测试覆盖；不将其描述为真实数据库写入验收。原有运行服务未替换，本轮也未提交或推送 GitHub。
+
 ---
 
 ## 六、当前系统能力总结
@@ -188,8 +200,8 @@ jobs:
 | API 端点 | ~150 个 |
 | 数据库表 | ~50 张（跨 6 个 schema） |
 | 前端页面 | 8 个路由页面 |
-| 前端测试 | 70 个（全通过） |
-| 后端测试 | 覆盖安全切面、拦截器、分析服务、迁移验证 |
+| 前端测试 | 24 个文件、137 项，全量通过（`npm test -- --maxWorkers=2`） |
+| 后端测试 | 本轮 `his-common` 36 项 + `his-patient` 35 项通过，无跳过；未重跑全模块或 Flyway 验证 |
 | RBAC 角色 | 9 个 |
 | 权限点 | 112 个 |
 | 演示用户 | 8 个（覆盖管理员、医生、护士、药师、挂号员） |

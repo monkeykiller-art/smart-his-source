@@ -79,7 +79,7 @@ export interface BillVoidRequest {
 export interface BillQuery {
   page: number
   size: number
-  patientId?: number
+  patientId?: string | number
   billStatus?: BillStatus
   visitType?: VisitType
 }

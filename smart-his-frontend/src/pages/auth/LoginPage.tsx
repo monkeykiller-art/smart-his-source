@@ -1,7 +1,7 @@
 import { LockOutlined, MedicineBoxOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons'
 import { Alert, Button, Form, Input } from 'antd'
 import axios from 'axios'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import type { LoginRequest } from '@/types/api'
@@ -10,17 +10,15 @@ export function LoginPage() {
   const session = useAuthStore((state) => state.session)
   const login = useAuthStore((state) => state.login)
   const loading = useAuthStore((state) => state.loading)
-  const navigate = useNavigate()
   const location = useLocation()
   const [error, setError] = useState('')
-  if (session) return <Navigate to="/" replace />
+  const [target] = useState(() => session ? '/' : (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/')
+  if (session) return <Navigate to={target} replace />
 
   const handleSubmit = async (values: LoginRequest) => {
     setError('')
     try {
       await login(values)
-      const target = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/'
-      navigate(target, { replace: true })
     } catch (requestError) {
       const message = axios.isAxiosError(requestError) ? requestError.response?.data?.message : undefined
       setError(message || '登录失败，请检查账号、密码和服务连接。')

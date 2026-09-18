@@ -32,6 +32,7 @@ export function OperationsPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [patientIdInput, setPatientIdInput] = useState('')
+  const [resolvingPatient, setResolvingPatient] = useState(false)
   const [filterError, setFilterError] = useState('')
   const [filters, setFilters] = useState<Pick<BillQuery, 'patientId' | 'billStatus' | 'visitType'>>({ billStatus: 'UNSETTLED' })
   const [selectedBillId, setSelectedBillId] = useState<number>()
@@ -96,19 +97,20 @@ export function OperationsPage() {
   })
 
   const applyFilters = async () => {
+    if (resolvingPatient) return
     const value = patientIdInput.trim()
-    let patientId: number | undefined
-    if (value) {
-      if (/^\d+$/.test(value) && Number(value) > 0) patientId = Number(value)
-      else {
-        try {
-          const result = await patientApi.query({ page: 1, size: 2, keyword: value })
-          if (result.total !== 1 || !result.records[0]) { setFilterError('未找到唯一患者，请输入数字 ID、EMPI、姓名或手机号。'); return }
-          patientId = result.records[0].id
-        } catch { setFilterError('患者查询失败，请检查患者服务连接。'); return }
-      }
-    }
+    let patientId: BillQuery['patientId']
     setFilterError('')
+    if (value) {
+      setResolvingPatient(true)
+      try {
+        const result = await patientApi.search({ page: 1, size: 2, keyword: value })
+        if (Number(result.total) === 0) { setFilterError('未找到患者，请核对系统 ID、EMPI、姓名、证件号或手机号。'); return }
+        if (Number(result.total) !== 1 || !result.records[0]) { setFilterError('匹配到多位患者，请使用完整系统 ID、EMPI 或证件号精确查询。'); return }
+        patientId = result.records[0].id
+      } catch { setFilterError('患者查询失败，请检查患者服务连接。'); return }
+      finally { setResolvingPatient(false) }
+    }
     setPage(1)
     setFilters((current) => ({
       ...current,
@@ -235,11 +237,11 @@ export function OperationsPage() {
       <Card size="small" className="metric-card"><div className="metric-label">默认范围</div><div className="metric-value operations-default">待缴账单</div><div className="metric-note">可切换查看其他状态</div></Card>
     </section>
     <Card className="patient-table-card" title="账单查询" extra={<Space wrap className="operations-filters">
-      <Input aria-label="患者编号" value={patientIdInput} onChange={(event) => setPatientIdInput(event.target.value)} onPressEnter={applyFilters} placeholder="数字 ID / EMPI / 姓名" style={{ width: 180 }} />
+      <Input aria-label="患者编号" disabled={resolvingPatient} value={patientIdInput} onChange={(event) => setPatientIdInput(event.target.value)} onPressEnter={applyFilters} placeholder="ID / EMPI / 姓名 / 证件号 / 手机号" style={{ width: 280 }} />
       <Select aria-label="账单状态" value={filters.billStatus} allowClear placeholder="全部账单状态" style={{ width: 130 }} options={Object.entries(billStatusMeta).map(([value, status]) => ({ value, label: status.label }))} onChange={(value) => { setPage(1); setFilters((current) => ({ ...current, billStatus: value })) }} />
       <Select aria-label="就诊类型" value={filters.visitType} allowClear placeholder="全部就诊类型" style={{ width: 120 }} options={Object.entries(visitTypeLabel).map(([value, label]) => ({ value, label }))} onChange={(value) => { setPage(1); setFilters((current) => ({ ...current, visitType: value })) }} />
-      <Button type="primary" icon={<SearchOutlined />} onClick={applyFilters}>查询</Button>
-      <Button onClick={resetFilters}>重置</Button>
+      <Button type="primary" icon={<SearchOutlined />} loading={resolvingPatient} onClick={applyFilters}>查询</Button>
+      <Button disabled={resolvingPatient} onClick={resetFilters}>重置</Button>
     </Space>}>
       {filterError && <Alert type="warning" showIcon message={filterError} style={{ marginBottom: 8 }} />}
       {bills.isError && <Alert type="error" showIcon message="账单加载失败" description="请确认已登录，并检查网关和运营服务连接。" style={{ marginBottom: 8 }} />}

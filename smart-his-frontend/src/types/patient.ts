@@ -1,5 +1,5 @@
 export interface Patient {
-  id: number
+  id: string | number
   empiNo: string
   name: string
   namePinyin?: string
