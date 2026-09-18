@@ -5,7 +5,7 @@ import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { dashboardServices, quickActions } from './dashboardConfig'
 
-const serviceNames: Record<(typeof dashboardServices)[number], string> = { auth: '统一认证', patient: '患者服务', clinical: '临床服务', operations: '运营管理', pharma: '药房库存' }
+const serviceNames: Record<(typeof dashboardServices)[number], string> = { auth: '统一认证', patient: '患者服务', clinical: '临床服务', operations: '运营管理', pharma: '药房库存', emergency: '急诊服务' }
 async function checkService(service: string) { try { await axios.get(`/api/${service}/health`, { timeout: 3500 }); return true } catch { return false } }
 
 export function DashboardPage() {

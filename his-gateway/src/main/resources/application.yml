@@ -18,7 +18,7 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: "*"
+            allowedOriginPatterns: ${HIS_CORS_ALLOWED_ORIGINS:http://localhost:*,https://localhost:*}
             allowedMethods: "*"
             allowedHeaders: "*"
             allowCredentials: true
@@ -59,6 +59,13 @@ spring:
             - Path=/api/pharma/health
           filters:
             - SetPath=/api/pharma/health
+        - id: his-emergency-health
+          uri: lb://his-emergency
+          order: -1
+          predicates:
+            - Path=/api/emergency/health
+          filters:
+            - SetPath=/health
         - id: his-auth
           uri: lb://his-auth
           predicates:
@@ -118,5 +125,5 @@ management:
 logging:
   level:
     root: INFO
-    com.smarthis: DEBUG
-    org.springframework.cloud.gateway: DEBUG
+    com.smarthis: INFO
+    org.springframework.cloud.gateway: INFO

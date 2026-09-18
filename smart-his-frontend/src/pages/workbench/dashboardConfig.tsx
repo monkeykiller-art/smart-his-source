@@ -7,4 +7,4 @@ export const quickActions = [
   { label: '药房库存', description: '药品目录、库存批次与门诊发药', path: '/pharma', icon: <MedicineBoxOutlined /> },
 ]
 
-export const dashboardServices = ['auth', 'patient', 'clinical', 'operations', 'pharma'] as const
+export const dashboardServices = ['auth', 'patient', 'clinical', 'operations', 'pharma', 'emergency'] as const
