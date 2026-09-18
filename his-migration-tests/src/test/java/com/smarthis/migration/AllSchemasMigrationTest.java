@@ -109,7 +109,7 @@ class AllSchemasMigrationTest {
             }
         }
 
-        assertEquals(24, discoveredMigrationCount,
+        assertEquals(25, discoveredMigrationCount,
                 "Every checked-in Flyway migration must be covered by this test");
     }
 

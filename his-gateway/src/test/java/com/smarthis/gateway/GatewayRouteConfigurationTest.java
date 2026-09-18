@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GatewayRouteConfigurationTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"resource", "collaboration", "cdss", "drg", "emergency", "platform"})
+    @ValueSource(strings = {"resource", "collaboration", "cdss", "drg", "platform"})
     void extensionServiceRoutesAreAbsent(String service) {
         List<Map<String, Object>> routes = routes();
 

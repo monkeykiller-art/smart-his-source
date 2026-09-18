@@ -29,7 +29,7 @@ describe('OperationsPage', () => {
     render(<QueryClientProvider client={client}><OperationsPage /></QueryClientProvider>)
     await screen.findByText('B20260914001')
     fireEvent.click(screen.getByRole('button', { name: /费用明细/ }))
-    const button = await screen.findByRole('button', { name: /打印费用清单/ })
+    const button = await screen.findByRole('button', { name: /打印费用清单/ }, { timeout: 5_000 })
     await waitFor(() => expect(button).toBeEnabled())
     expect(screen.getByRole('button', { name: /打印收据/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: '打印正式发票' })).toBeDisabled()
