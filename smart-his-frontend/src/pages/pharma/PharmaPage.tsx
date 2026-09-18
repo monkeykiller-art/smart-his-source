@@ -2,16 +2,29 @@ import { AlertOutlined, MedicineBoxOutlined, PlusOutlined, PrinterOutlined, Relo
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Card, DatePicker, Form, Input, InputNumber, message, Modal, Select, Space, Statistic, Table, Tabs, Tag } from 'antd'
 import type { TableColumnsType } from 'antd'
+import axios from 'axios'
 import dayjs from 'dayjs'
 import { useState } from 'react'
 import { pharmaApi } from '@/services/pharmaApi'
 import { useAuthStore } from '@/stores/authStore'
-import type { Dispense, DispenseCreateRequest, DrugCatalog, DrugCatalogSaveRequest, InventoryBatch, InventoryOperationRequest, InventoryOperationType, RxReview } from '@/types/pharma'
+import type { Dispense, DispenseCreateRequest, DrugCatalog, DrugCatalogSaveRequest, EntityId, InventoryBatch, InventoryOperationRequest, InventoryOperationType, RxReview } from '@/types/pharma'
 
 const operationLabels: Record<InventoryOperationType, string> = { INBOUND: '入库', OUTBOUND: '出库', STOCKTAKE: '盘点', RETURN: '退药', LOSS: '报损' }
 const dosageFormOptions = ['片剂', '胶囊', '颗粒剂', '口服液', '注射剂', '输液剂', '软膏剂', '喷雾剂', '滴眼剂'].map((value) => ({ value, label: value }))
 const unitOptions = ['盒', '瓶', '袋', '支', '片', '粒', '包', '毫升', '克'].map((value) => ({ value, label: value }))
 const antibioticLevelOptions = [{ value: 'NONE', label: '非抗菌药' }, { value: '非限制级', label: '非限制级' }, { value: '限制级', label: '限制级' }, { value: '特殊级', label: '特殊级' }]
+const positiveIdPattern = /^[1-9]\d*$/
+const idRules = [{ required: true, message: '请输入 ID' }, { pattern: positiveIdPattern, message: 'ID 必须为正整数' }]
+type DispenseFormValues = Omit<DispenseCreateRequest, 'patientId' | 'prescriptionId' | 'rxReviewId' | 'items'> & {
+  patientId: string; prescriptionId: string; rxReviewId: string; drugId: EntityId; quantity: number; unit: string
+}
+
+function getPharmaErrorMessage(error: unknown, fallback: string) {
+  const response = axios.isAxiosError<{ code?: number; message?: unknown }>(error) ? error.response?.data : undefined
+  if (response?.code === 4002) return '库存不足，请核对可用库存后重试。'
+  const detail = response?.message
+  return typeof detail === 'string' && detail.trim() ? `${fallback}（${detail}）` : fallback
+}
 
 export function PharmaPage() {
   const queryClient = useQueryClient()
@@ -23,28 +36,52 @@ export function PharmaPage() {
   const [dispenseOpen, setDispenseOpen] = useState(false)
   const [selectedDrug, setSelectedDrug] = useState<DrugCatalog>()
   const [operationType, setOperationType] = useState<InventoryOperationType>('INBOUND')
-  const [patientId, setPatientId] = useState<number>()
+  const [patientId, setPatientId] = useState('')
+  const validPatientId = positiveIdPattern.test(patientId)
   const [selectedReview, setSelectedReview] = useState<RxReview>()
   const [rejectReason, setRejectReason] = useState('')
   const [drugForm] = Form.useForm<DrugCatalogSaveRequest>()
   const [inventoryForm] = Form.useForm<InventoryOperationRequest & { productionDate?: dayjs.Dayjs; expiryDate?: dayjs.Dayjs }>()
-  const [dispenseForm] = Form.useForm<DispenseCreateRequest & { drugId: number; quantity: number; unit: string }>()
+  const [dispenseForm] = Form.useForm<DispenseFormValues>()
 
   const drugs = useQuery({ queryKey: ['pharma-drugs', keyword], queryFn: () => pharmaApi.queryDrugs({ page: 1, size: 100, keyword: keyword || undefined }) })
   const batches = useQuery({ queryKey: ['pharma-batches'], queryFn: () => pharmaApi.listBatches() })
   const nearExpiry = useQuery({ queryKey: ['pharma-near-expiry'], queryFn: () => pharmaApi.listNearExpiry('OPD', 90) })
-  const dispenses = useQuery({ queryKey: ['pharma-dispenses', patientId], queryFn: () => pharmaApi.listDispenses(patientId!), enabled: Boolean(patientId) })
+  const dispenses = useQuery({ queryKey: ['pharma-dispenses', patientId], queryFn: () => pharmaApi.listDispenses(patientId), enabled: validPatientId })
   const reviews = useQuery({ queryKey: ['pharma-reviews'], queryFn: () => pharmaApi.queryReviews({ page: 1, size: 100 }) })
   const refresh = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: ['pharma-drugs'] }), queryClient.invalidateQueries({ queryKey: ['pharma-batches'] }),
     queryClient.invalidateQueries({ queryKey: ['pharma-near-expiry'] }), queryClient.invalidateQueries({ queryKey: ['pharma-dispenses'] }),
   ])
-  const saveDrug = useMutation({ mutationFn: (value: DrugCatalogSaveRequest) => selectedDrug ? pharmaApi.updateDrug(selectedDrug.id, value) : pharmaApi.createDrug(value), onSuccess: async () => { messageApi.success('药品目录已保存'); setDrugOpen(false); drugForm.resetFields(); await refresh() } })
-  const operate = useMutation({ mutationFn: (value: InventoryOperationRequest) => pharmaApi.operateInventory(value), onSuccess: async () => { messageApi.success(`${operationLabels[operationType]}完成`); setInventoryOpen(false); inventoryForm.resetFields(); await refresh() } })
-  const dispense = useMutation({ mutationFn: pharmaApi.dispense, onSuccess: async () => { messageApi.success('发药完成，库存流水已生成'); setDispenseOpen(false); dispenseForm.resetFields(); await refresh() } })
-  const approveReview = useMutation({ mutationFn: (id: number) => pharmaApi.approveReview(id, session?.userId, session?.realName || session?.username), onSuccess: async (value) => { messageApi.success('处方审核已通过'); setSelectedReview(value); await queryClient.invalidateQueries({ queryKey: ['pharma-reviews'] }) } })
-  const rejectReviewMutation = useMutation({ mutationFn: ({ id, reason }: { id: number; reason: string }) => pharmaApi.rejectReview(id, reason, session?.userId, session?.realName || session?.username), onSuccess: async (value) => { messageApi.success('处方已驳回'); setSelectedReview(value); setRejectReason(''); await queryClient.invalidateQueries({ queryKey: ['pharma-reviews'] }) } })
-  const loadReview = useMutation({ mutationFn: pharmaApi.getReview, onSuccess: setSelectedReview })
+  const saveDrug = useMutation({
+    mutationFn: (value: DrugCatalogSaveRequest) => selectedDrug ? pharmaApi.updateDrug(selectedDrug.id, value) : pharmaApi.createDrug(value),
+    onSuccess: async () => { messageApi.success('药品目录已保存'); setDrugOpen(false); drugForm.resetFields(); await refresh() },
+    onError: (error) => { messageApi.error(getPharmaErrorMessage(error, '药品目录保存失败，请核对药品信息或检查服务连接后重试。')) },
+  })
+  const operate = useMutation({
+    mutationFn: (value: InventoryOperationRequest) => pharmaApi.operateInventory(value),
+    onSuccess: async () => { messageApi.success(`${operationLabels[operationType]}完成`); setInventoryOpen(false); inventoryForm.resetFields(); await refresh() },
+    onError: (error) => { messageApi.error(getPharmaErrorMessage(error, `${operationLabels[operationType]}失败，请核对库存数量或检查服务连接后重试。`)) },
+  })
+  const dispense = useMutation({
+    mutationFn: pharmaApi.dispense,
+    onSuccess: async () => { messageApi.success('发药完成，库存流水已生成'); setDispenseOpen(false); dispenseForm.resetFields(); await refresh() },
+    onError: (error) => { messageApi.error(getPharmaErrorMessage(error, '发药失败，请核对处方审核状态、库存或检查服务连接后重试。')) },
+  })
+  const approveReview = useMutation({
+    mutationFn: (id: EntityId) => pharmaApi.approveReview(id, session?.userId, session?.realName || session?.username),
+    onSuccess: async (value) => { messageApi.success('处方审核已通过'); setSelectedReview(value); await queryClient.invalidateQueries({ queryKey: ['pharma-reviews'] }) },
+    onError: (error) => { messageApi.error(getPharmaErrorMessage(error, '处方审核通过失败，请核对审核状态或检查服务连接后重试。')) },
+  })
+  const rejectReviewMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: EntityId; reason: string }) => pharmaApi.rejectReview(id, reason, session?.userId, session?.realName || session?.username),
+    onSuccess: async (value) => { messageApi.success('处方已驳回'); setSelectedReview(value); setRejectReason(''); await queryClient.invalidateQueries({ queryKey: ['pharma-reviews'] }) },
+    onError: (error) => { messageApi.error(getPharmaErrorMessage(error, '处方驳回失败，请核对审核状态和驳回原因或检查服务连接后重试。')) },
+  })
+  const loadReview = useMutation({
+    mutationFn: pharmaApi.getReview, onSuccess: setSelectedReview,
+    onError: (error) => { messageApi.error(getPharmaErrorMessage(error, '处方审核单加载失败，请检查服务连接后重试。')) },
+  })
 
   const openDrug = (drug?: DrugCatalog) => {
     setSelectedDrug(drug); setDrugOpen(true)
@@ -91,7 +128,7 @@ export function PharmaPage() {
       <Tabs items={[
         { key: 'catalog', label: '药品目录', children: <><Space className="table-toolbar"><Input.Search allowClear placeholder="编码、名称或拼音" onSearch={setKeyword} /><Button type="primary" icon={<PlusOutlined />} onClick={() => openDrug()}>新增药品</Button></Space><Table rowKey="id" size="small" loading={drugs.isLoading} columns={drugColumns} dataSource={drugs.data?.records || []} pagination={false} /></> },
         { key: 'inventory', label: '库存管理', children: <><Space className="table-toolbar"><Button type="primary" icon={<PlusOutlined />} onClick={() => openInventory('INBOUND')}>药品入库</Button></Space><Table rowKey="id" size="small" loading={batches.isLoading} columns={batchColumns} dataSource={batches.data || []} pagination={false} /></> },
-        { key: 'dispense', label: '门诊发药', children: <><Space className="table-toolbar"><InputNumber min={1} placeholder="患者数字 ID" value={patientId} onChange={(v) => setPatientId(v || undefined)} /><Button type="primary" icon={<MedicineBoxOutlined />} onClick={() => setDispenseOpen(true)}>处方发药</Button></Space>{!patientId ? <Alert type="info" showIcon message="输入患者数字 ID 查询发药记录" /> : <Table rowKey="id" size="small" loading={dispenses.isLoading} columns={dispenseColumns} dataSource={dispenses.data || []} pagination={false} />}</> },
+        { key: 'dispense', label: '门诊发药', children: <><Space className="table-toolbar"><Input inputMode="numeric" aria-label="查询患者 ID" placeholder="患者数字 ID" value={patientId} status={patientId && !validPatientId ? 'error' : undefined} onChange={(e) => setPatientId(e.target.value)} /><Button type="primary" icon={<MedicineBoxOutlined />} onClick={() => setDispenseOpen(true)}>处方发药</Button></Space>{!validPatientId ? <Alert type={patientId ? 'error' : 'info'} showIcon message={patientId ? '患者 ID 必须为正整数' : '输入患者数字 ID 查询发药记录'} /> : <Table rowKey="id" size="small" loading={dispenses.isLoading} columns={dispenseColumns} dataSource={dispenses.data || []} pagination={false} />}</> },
         { key: 'review', label: '处方审核', children: <Table rowKey="id" size="small" loading={reviews.isLoading} columns={reviewColumns} dataSource={reviews.data?.records || []} pagination={false} /> },
       ]} />
     </Card>
@@ -122,8 +159,8 @@ export function PharmaPage() {
     <Modal title="处方审核后发药" open={dispenseOpen} onCancel={() => setDispenseOpen(false)} onOk={() => dispenseForm.submit()} confirmLoading={dispense.isPending}>
       <Alert type="info" showIcon message="仅已审核通过的处方可发药；系统自动按先到期先发分配批次。" />
       <Form form={dispenseForm} layout="vertical" initialValues={{ warehouseCode: 'OPD', unit: '盒' }} onFinish={(v) => dispense.mutate({ prescriptionId: v.prescriptionId, rxReviewId: v.rxReviewId, patientId: v.patientId, warehouseCode: v.warehouseCode, pharmacistId: session?.userId, pharmacistName: session?.realName || session?.username, items: [{ drugId: v.drugId, quantity: v.quantity, unit: v.unit }] })}>
-        <Form.Item name="patientId" label="患者数字 ID" rules={[{ required: true }]}><InputNumber min={1} /></Form.Item><Form.Item name="prescriptionId" label="处方 ID" rules={[{ required: true }]}><InputNumber min={1} /></Form.Item>
-        <Form.Item name="rxReviewId" label="审核记录 ID" rules={[{ required: true }]}><InputNumber min={1} /></Form.Item><Form.Item name="warehouseCode" label="发药库房" rules={[{ required: true }]}><Input /></Form.Item>
+        <Form.Item name="patientId" label="患者数字 ID" rules={idRules}><Input inputMode="numeric" /></Form.Item><Form.Item name="prescriptionId" label="处方 ID" rules={idRules}><Input inputMode="numeric" /></Form.Item>
+        <Form.Item name="rxReviewId" label="审核记录 ID" rules={idRules}><Input inputMode="numeric" /></Form.Item><Form.Item name="warehouseCode" label="发药库房" rules={[{ required: true }]}><Input /></Form.Item>
         <Form.Item name="drugId" label="药品" rules={[{ required: true }]}><Select showSearch optionFilterProp="label" options={(drugs.data?.records || []).filter((d) => d.isActive === 1).map((d) => ({ value: d.id, label: `${d.drugCode} ${d.genericName} ${d.strength}` }))} /></Form.Item>
         <Form.Item name="quantity" label="发药数量" rules={[{ required: true }]}><InputNumber min={0.0001} precision={4} /></Form.Item><Form.Item name="unit" label="单位" rules={[{ required: true }]}><Input /></Form.Item>
       </Form>

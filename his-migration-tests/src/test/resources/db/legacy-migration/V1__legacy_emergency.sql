@@ -1,8 +1,6 @@
--- Smart HIS Emergency Module Schema
+-- Legacy emergency V1 for upgrade testing
+-- This represents the historical schema that existed before V2 alignment
 
--- ============================================================
--- Table: emg_triage
--- ============================================================
 CREATE TABLE emg_triage (
     id                BIGINT        NOT NULL,
     triage_no         VARCHAR(32)   NOT NULL,
@@ -27,18 +25,6 @@ CREATE TABLE emg_triage (
     CONSTRAINT uk_emg_triage_no UNIQUE (triage_no)
 );
 
-CREATE INDEX idx_emg_triage_patient_id ON emg_triage (patient_id);
-CREATE INDEX idx_emg_triage_triage_time ON emg_triage (triage_time);
-CREATE INDEX idx_emg_triage_triage_level ON emg_triage (triage_level);
-
-COMMENT ON TABLE emg_triage IS '急诊分诊表';
-COMMENT ON COLUMN emg_triage.triage_level IS '分诊级别: 1-濒死 2-危重 3-急症 4-非急症';
-COMMENT ON COLUMN emg_triage.triage_status IS '分诊状态: WAITING/IN_TREATMENT/COMPLETED/CANCELLED';
-COMMENT ON COLUMN emg_triage.vital_signs IS '生命体征JSON: temperature, pulse, respiration, bloodPressure, spo2';
-
--- ============================================================
--- Table: emg_resuscitation
--- ============================================================
 CREATE TABLE emg_resuscitation (
     id                      BIGINT        NOT NULL,
     resuscitation_no        VARCHAR(32)   NOT NULL,
@@ -65,17 +51,6 @@ CREATE TABLE emg_resuscitation (
     CONSTRAINT uk_emg_resuscitation_no UNIQUE (resuscitation_no)
 );
 
-CREATE INDEX idx_emg_resuscitation_patient_id ON emg_resuscitation (patient_id);
-CREATE INDEX idx_emg_resuscitation_start_time ON emg_resuscitation (start_time);
-
-COMMENT ON TABLE emg_resuscitation IS '急诊抢救记录表';
-COMMENT ON COLUMN emg_resuscitation.resuscitation_type IS '抢救类型: CARDIAC_ARREST/RESPIRATORY_FAILURE/SHOCK/TRAUMA/OTHER';
-COMMENT ON COLUMN emg_resuscitation.outcome IS '抢救结果: SUCCESS/FAILED/TRANSFERRED/DEAD';
-COMMENT ON COLUMN emg_resuscitation.resuscitation_status IS '抢救状态: IN_PROGRESS/COMPLETED/CANCELLED';
-
--- ============================================================
--- Table: emg_green_channel
--- ============================================================
 CREATE TABLE emg_green_channel (
     id                  BIGINT        NOT NULL,
     channel_no          VARCHAR(32)   NOT NULL,
@@ -102,18 +77,6 @@ CREATE TABLE emg_green_channel (
     CONSTRAINT uk_emg_green_channel_no UNIQUE (channel_no)
 );
 
-CREATE INDEX idx_emg_green_channel_patient_id ON emg_green_channel (patient_id);
-CREATE INDEX idx_emg_green_channel_activate_time ON emg_green_channel (activate_time);
-CREATE INDEX idx_emg_green_channel_channel_type ON emg_green_channel (channel_type);
-
-COMMENT ON TABLE emg_green_channel IS '急诊绿色通道表';
-COMMENT ON COLUMN emg_green_channel.channel_type IS '通道类型: STROKE/CHEST_PAIN/TRAUMA/PREGNANCY/OTHER';
-COMMENT ON COLUMN emg_green_channel.channel_status IS '通道状态: ACTIVATED/IN_PROGRESS/COMPLETED/CLOSED';
-COMMENT ON COLUMN emg_green_channel.key_timepoints IS '关键时间节点JSON数组';
-
--- ============================================================
--- Table: emg_observation
--- ============================================================
 CREATE TABLE emg_observation (
     id                      BIGINT        NOT NULL,
     observation_no          VARCHAR(32)   NOT NULL,
@@ -139,9 +102,3 @@ CREATE TABLE emg_observation (
     CONSTRAINT pk_emg_observation PRIMARY KEY (id),
     CONSTRAINT uk_emg_observation_no UNIQUE (observation_no)
 );
-
-CREATE INDEX idx_emg_observation_patient_id ON emg_observation (patient_id);
-CREATE INDEX idx_emg_observation_admit_time ON emg_observation (admit_time);
-
-COMMENT ON TABLE emg_observation IS '急诊留观记录表';
-COMMENT ON COLUMN emg_observation.observation_status IS '留观状态: ADMITTED/DISCHARGED/TRANSFERRED/CANCELLED';

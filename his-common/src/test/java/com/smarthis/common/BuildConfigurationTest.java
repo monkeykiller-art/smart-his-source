@@ -135,6 +135,17 @@ class BuildConfigurationTest {
     }
 
     @Test
+    void permissionProtectedServicesMustIncludeAop() throws IOException {
+        Path root = findProjectRoot();
+        for (String module : List.of("his-auth", "his-patient", "his-clinical",
+                "his-pharma", "his-operations", "his-emergency")) {
+            String modulePom = Files.readString(root.resolve(module).resolve("pom.xml"));
+            assertTrue(modulePom.contains("<artifactId>spring-boot-starter-aop</artifactId>"),
+                    module + " must include AOP to enforce permission annotations");
+        }
+    }
+
+    @Test
     void feignServiceClientsMustIncludeLoadBalancer() throws IOException {
         Path root = findProjectRoot();
 

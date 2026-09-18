@@ -25,6 +25,9 @@ public class FeignHeaderRelayInterceptor implements RequestInterceptor {
             if (ctx.getRoles() != null) {
                 template.header("X-Roles", ctx.getRoles());
             }
+            if (ctx.getPermissions() != null) {
+                template.header("X-Permissions", ctx.getPermissions());
+            }
             if (ctx.getTraceId() != null) {
                 template.header("X-Trace-Id", ctx.getTraceId());
             }

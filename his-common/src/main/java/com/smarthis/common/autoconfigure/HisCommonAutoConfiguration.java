@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Import;
 @AutoConfiguration
 @Import({HisMybatisAutoConfiguration.class, HisWebAutoConfiguration.class,
          HisRedisAutoConfiguration.class, HisKafkaAutoConfiguration.class,
-         HisFeignAutoConfiguration.class})
+         HisFeignAutoConfiguration.class, HisSecurityAutoConfiguration.class})
 public class HisCommonAutoConfiguration {
 
     @Bean
