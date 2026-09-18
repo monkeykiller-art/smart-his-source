@@ -8,10 +8,9 @@ import { clinicalApi } from '@/services/clinicalApi'
 import { patientApi } from '@/services/patientApi'
 import { registrationApi } from '@/services/registrationApi'
 import { useAuthStore } from '@/stores/authStore'
-import type { ClinicalOrder, CommonPhrase, Diagnosis, ExamRequest, Icd10Item, MedicalRecord, MedicalRecordUpdateRequest } from '@/types/clinical'
+import type { ClinicalOrder, CommonPhrase, Diagnosis, ExamRequest, Icd10Item, MedicalRecord, MedicalRecordUpdateRequest, RecordTemplate, RecordTemplateContent } from '@/types/clinical'
 import { maskPhone } from '@/utils/maskSensitive'
 import { canCloseEncounter, ordersForEncounter } from './clinicalWorkflow'
-import { recordTemplates } from './clinicalTemplates'
 
 interface RecordFormValues extends MedicalRecordUpdateRequest { chiefComplaint: string }
 interface DiagnosisFormValues { diagnosisName: string; icdCode?: string; icd10Id?: number; diagnosisDesc?: string; isPrimary?: boolean }
@@ -102,6 +101,9 @@ export function ClinicalPage() {
   const commonPhrases = useQuery({
     queryKey: ['common-phrases'], queryFn: () => clinicalApi.listCommonPhrases(), enabled: recordOpen,
   })
+  const recordTemplatesQuery = useQuery({
+    queryKey: ['record-templates'], queryFn: () => clinicalApi.listRecordTemplates(1), enabled: recordOpen && !editingRecord,
+  })
   const phraseFieldMap: Record<string, keyof RecordFormValues> = {
     CHIEF_COMPLAINT: 'chiefComplaint', PRESENT_ILLNESS: 'presentIllness', PHYSICAL_EXAM: 'physicalExam', TREATMENT_PLAN: 'treatmentPlan',
   }
@@ -113,6 +115,20 @@ export function ClinicalPage() {
     if (!field) return
     const current = (recordForm.getFieldValue(field) as string) || ''
     recordForm.setFieldsValue({ [field]: current ? `${current}\n${phrase.phraseContent}` : phrase.phraseContent })
+  }
+  const applyTemplate = (template: RecordTemplate) => {
+    try {
+      const content: RecordTemplateContent = JSON.parse(template.templateContent || '{}')
+      recordForm.setFieldsValue({
+        chiefComplaint: content.chiefComplaint || '',
+        presentIllness: content.presentIllness || '',
+        physicalExam: content.physicalExam || '',
+        diagnosisDesc: content.diagnosisDesc || '',
+        treatmentPlan: content.treatmentPlan || '',
+      })
+    } catch {
+      message.error('模板内容解析失败')
+    }
   }
   const encounterOrders = useMemo(() => ordersForEncounter(orders.data || [], encounterId), [orders.data, encounterId])
   const canClose = canCloseEncounter(currentEncounterStatus, records.data || [], diagnoses.data || [])
@@ -303,7 +319,7 @@ export function ClinicalPage() {
 
     <Modal title={editingRecord ? '编辑病历草稿' : '书写门诊病历'} open={recordOpen} onCancel={() => { setRecordOpen(false); setEditingRecord(null); recordForm.resetFields() }} onOk={() => recordForm.submit()} okText="保存草稿" cancelText="取消" confirmLoading={saveRecord.isPending} width={780} destroyOnHidden>
       <Form<RecordFormValues> form={recordForm} layout="vertical" onFinish={(values) => saveRecord.mutate(values)}>
-        {!editingRecord && <Form.Item label="病历模板"><Select allowClear placeholder="选择模板后自动填充，可继续修改" options={[{ value: 'COMMON_COLD', label: '普通感冒' }, { value: 'HYPERTENSION', label: '高血压复诊' }, { value: 'DIABETES', label: '糖尿病复诊' }]} onChange={(value) => value && recordForm.setFieldsValue({ ...recordTemplates[value] })} /></Form.Item>}
+        {!editingRecord && <Form.Item label="病历模板"><Select allowClear placeholder="选择模板后自动填充，可继续修改" loading={recordTemplatesQuery.isLoading} options={(recordTemplatesQuery.data || []).map((t) => ({ value: t.id, label: t.templateName }))} onChange={(id) => { const tpl = recordTemplatesQuery.data?.find((t) => t.id === id); if (tpl) applyTemplate(tpl) }} /></Form.Item>}
         {!editingRecord && draftSavedAt && <Alert type="info" showIcon message={draftSavedAt} description="填写内容会自动保存在当前浏览器，保存病历后自动清除。" style={{ marginBottom: 12 }} />}
         {commonPhrases.data && commonPhrases.data.length > 0 && <Card size="small" title="常用短语" style={{ marginBottom: 12 }} styles={{ body: { padding: '8px 12px' } }}>
           {Object.entries(phraseFieldLabel).filter(([type]) => commonPhrases.data!.some((p) => p.phraseType === type)).map(([type, label]) => (

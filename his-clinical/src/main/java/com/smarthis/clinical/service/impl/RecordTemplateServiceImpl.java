@@ -88,4 +88,14 @@ public class RecordTemplateServiceImpl implements RecordTemplateService {
         recordTemplateMapper.updateById(entity);
         return RecordTemplateConverter.toVo(entity);
     }
+
+    @Override
+    public void delete(Long id) {
+        RecordTemplate entity = recordTemplateMapper.selectById(id);
+        if (entity == null || entity.getDeleted() != 0) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        entity.setDeleted(1);
+        recordTemplateMapper.updateById(entity);
+    }
 }

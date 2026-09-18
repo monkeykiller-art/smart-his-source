@@ -181,3 +181,45 @@ export interface CommonPhraseUpdateRequest {
   userId?: number
   sortOrder?: number
 }
+
+export interface RecordTemplate {
+  id: number
+  templateName: string
+  templateType: string
+  deptId?: number
+  diseaseCode?: string
+  recordType: string
+  templateContent: string
+  sortOrder?: number
+  templateStatus: number
+}
+
+export interface RecordTemplateContent {
+  chiefComplaint?: string
+  presentIllness?: string
+  physicalExam?: string
+  diagnosisDesc?: string
+  treatmentPlan?: string
+}
+
+export interface RecordTemplateCreateRequest {
+  templateName: string
+  templateType?: string
+  deptId?: number
+  diseaseCode?: string
+  recordType?: string
+  templateContent: string
+  sortOrder?: number
+  templateStatus?: number
+}
+
+export interface RecordTemplateUpdateRequest {
+  templateName?: string
+  templateType?: string
+  deptId?: number
+  diseaseCode?: string
+  recordType?: string
+  templateContent?: string
+  sortOrder?: number
+  templateStatus?: number
+}

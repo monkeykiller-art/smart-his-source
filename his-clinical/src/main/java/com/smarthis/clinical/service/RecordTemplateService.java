@@ -11,4 +11,5 @@ public interface RecordTemplateService {
     RecordTemplateVo getById(Long id);
     PageResult<RecordTemplateVo> query(RecordTemplateQueryRequest request);
     RecordTemplateVo update(Long id, RecordTemplateUpdateRequest request);
+    void delete(Long id);
 }

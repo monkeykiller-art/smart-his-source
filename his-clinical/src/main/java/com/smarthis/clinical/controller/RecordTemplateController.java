@@ -37,4 +37,10 @@ public class RecordTemplateController {
     public ApiResponse<RecordTemplateVo> update(@PathVariable Long id, @Valid @RequestBody RecordTemplateUpdateRequest request) {
         return ApiResponse.ok(recordTemplateService.update(id, request));
     }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        recordTemplateService.delete(id);
+        return ApiResponse.ok();
+    }
 }

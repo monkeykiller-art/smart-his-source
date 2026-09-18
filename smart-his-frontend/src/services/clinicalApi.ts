@@ -1,6 +1,6 @@
 import { http } from './http'
 import type { ApiResponse } from '@/types/api'
-import type { ClinicalOrder, ClinicalOrderCreateRequest, CommonPhrase, CommonPhraseCreateRequest, CommonPhraseUpdateRequest, Diagnosis, DiagnosisCreateRequest, ExamRequest, ExamRequestCreateRequest, Icd10Item, MedicalRecord, MedicalRecordCreateRequest, MedicalRecordUpdateRequest } from '@/types/clinical'
+import type { ClinicalOrder, ClinicalOrderCreateRequest, CommonPhrase, CommonPhraseCreateRequest, CommonPhraseUpdateRequest, Diagnosis, DiagnosisCreateRequest, ExamRequest, ExamRequestCreateRequest, Icd10Item, MedicalRecord, MedicalRecordCreateRequest, MedicalRecordUpdateRequest, RecordTemplate, RecordTemplateCreateRequest, RecordTemplateUpdateRequest } from '@/types/clinical'
 
 export const clinicalApi = {
   async listRecords(patientId: number) {
@@ -91,5 +91,24 @@ export const clinicalApi = {
   },
   async deleteCommonPhrase(id: number) {
     await http.delete<ApiResponse<void>>(`/clinical/common-phrases/${id}`)
+  },
+  async listRecordTemplates(templateStatus?: number, deptId?: number, recordType?: string) {
+    const params: Record<string, any> = { pageNum: 1, pageSize: 100 }
+    if (templateStatus !== undefined) params.templateStatus = templateStatus
+    if (deptId) params.deptId = deptId
+    if (recordType) params.recordType = recordType
+    const response = await http.get<ApiResponse<{ records: RecordTemplate[] }>>('/clinical/record-templates', { params })
+    return response.data.data.records
+  },
+  async createRecordTemplate(request: RecordTemplateCreateRequest) {
+    const response = await http.post<ApiResponse<RecordTemplate>>('/clinical/record-templates', request)
+    return response.data.data
+  },
+  async updateRecordTemplate(id: number, request: RecordTemplateUpdateRequest) {
+    const response = await http.put<ApiResponse<RecordTemplate>>(`/clinical/record-templates/${id}`, request)
+    return response.data.data
+  },
+  async deleteRecordTemplate(id: number) {
+    await http.delete<ApiResponse<void>>(`/clinical/record-templates/${id}`)
   },
 }
