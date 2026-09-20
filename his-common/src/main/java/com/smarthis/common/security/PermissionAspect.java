@@ -29,6 +29,7 @@ public class PermissionAspect {
         }
         Set<String> roles = Arrays.stream(ctx.getRoles().split(","))
                 .map(String::trim)
+                .filter(role -> !role.isEmpty())
                 .collect(Collectors.toSet());
         if (roles.contains("ADMIN")) {
             return joinPoint.proceed();
@@ -38,10 +39,22 @@ public class PermissionAspect {
                         .map(String::trim)
                         .filter(value -> !value.isEmpty())
                         .collect(Collectors.toSet());
-        if (!permissions.contains(required)) {
+        if (!matchesPermission(permissions, required)) {
             log.warn("Permission denied: required={}, userId={}, roles={}", required, ctx.getUserId(), roles);
             throw new BusinessException(ErrorCode.AUTH_NO_PERMISSION);
         }
         return joinPoint.proceed();
+    }
+
+    private boolean matchesPermission(Set<String> granted, String required) {
+        if (granted.contains("*") || granted.contains(required)) {
+            return true;
+        }
+        for (String perm : granted) {
+            if (perm.endsWith(":*") && required.startsWith(perm.substring(0, perm.length() - 1))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

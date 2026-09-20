@@ -31,6 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -195,9 +198,13 @@ public class AdmissionServiceImpl implements AdmissionService {
         Page<Admission> page = new Page<>(request.toPage().getCurrent(), request.toPage().getSize());
         Page<Admission> result = admissionMapper.selectPage(page, query);
 
-        List<AdmissionVo> records = result.getRecords().stream().map(a -> {
+        List<Admission> admissions = result.getRecords();
+        Map<Long, Patient> patientMap = loadPatients(admissions.stream()
+                .map(Admission::getPatientId).distinct().toList());
+
+        List<AdmissionVo> records = admissions.stream().map(a -> {
             AdmissionVo vo = AdmissionConverter.toVo(a);
-            Patient patient = patientMapper.selectById(a.getPatientId());
+            Patient patient = patientMap.get(a.getPatientId());
             if (patient != null) {
                 vo.setPatientName(patient.getName());
             }
@@ -232,8 +239,16 @@ public class AdmissionServiceImpl implements AdmissionService {
     }
 
     private void releaseBed(Long bedId, Long admissionId) {
-        if (bedId != null) {
-            inpatientBedMapper.release(bedId, admissionId);
+        if (bedId != null && inpatientBedMapper.release(bedId, admissionId) != 1) {
+            log.warn("Bed release mismatch: bedId={}, admissionId={}", bedId, admissionId);
         }
+    }
+
+    private Map<Long, Patient> loadPatients(List<Long> patientIds) {
+        if (patientIds.isEmpty()) {
+            return Map.of();
+        }
+        return patientMapper.selectBatchIds(patientIds).stream()
+                .collect(Collectors.toMap(Patient::getId, Function.identity()));
     }
 }

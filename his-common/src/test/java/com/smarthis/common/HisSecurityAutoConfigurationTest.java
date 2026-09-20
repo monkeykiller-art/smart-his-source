@@ -51,7 +51,7 @@ class HisSecurityAutoConfigurationTest {
             assertThat(operation.read()).isEqualTo("ok");
             assertThat(calls).hasValue(1);
             verify(jdbc).update(contains("INSERT INTO his_auth.auth_operation_log"), any(), eq(1L), eq("doctor"),
-                    eq("patient:read"), eq("permission"), any(), eq(200), eq(0L), any());
+                    eq("patient:read"), eq("permission"), any(), eq(200), any(Long.class), any());
         });
     }
 

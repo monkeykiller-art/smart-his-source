@@ -36,6 +36,6 @@ class OperationAuditAspectTest {
         assertEquals("ok", new OperationAuditAspect(provider).audit(joinPoint, permission));
 
         verify(jdbc).update(any(String.class), any(), eq(1L), eq("cashier"), eq("operations:payment:create"),
-                eq("permission"), eq("BillController.pay(..)"), eq(200), eq(0L), any());
+                eq("permission"), eq("BillController.pay(..)"), eq(200), any(Long.class), any());
     }
 }

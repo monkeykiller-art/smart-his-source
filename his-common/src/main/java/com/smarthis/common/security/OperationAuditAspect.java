@@ -27,20 +27,21 @@ public class OperationAuditAspect {
 
     @Around("@annotation(permission)")
     public Object audit(ProceedingJoinPoint joinPoint, RequiresPermission permission) throws Throwable {
+        long start = System.currentTimeMillis();
         try {
             Object result = joinPoint.proceed();
-            persist(permission.value(), joinPoint.getSignature().toShortString(), "SUCCESS", null);
+            persist(permission.value(), joinPoint.getSignature().toShortString(), "SUCCESS", null, System.currentTimeMillis() - start);
             return result;
         } catch (Throwable error) {
-            persist(permission.value(), joinPoint.getSignature().toShortString(), "FAILED", error.getClass().getSimpleName());
+            persist(permission.value(), joinPoint.getSignature().toShortString(), "FAILED", error.getClass().getSimpleName(), System.currentTimeMillis() - start);
             throw error;
         }
     }
 
-    private void persist(String action, String resource, String result, String detail) {
+    private void persist(String action, String resource, String result, String detail, long executionTime) {
         var context = UserContextHolder.get();
-        log.info("AUDIT action={} result={} userId={} traceId={} resource={}", action, result,
-                context == null ? null : context.getUserId(), context == null ? null : context.getTraceId(), resource);
+        log.info("AUDIT action={} result={} userId={} traceId={} resource={} time={}ms", action, result,
+                context == null ? null : context.getUserId(), context == null ? null : context.getTraceId(), resource, executionTime);
         JdbcTemplate jdbc = jdbcTemplateProvider.getIfAvailable();
         if (jdbc == null) return;
         try {
@@ -50,7 +51,7 @@ public class OperationAuditAspect {
                     Math.abs(UUID.randomUUID().getMostSignificantBits()),
                     context == null ? null : context.getUserId(), context == null ? null : context.getUsername(),
                     action, "permission", resource + (detail == null ? "" : " (" + detail + ")"),
-                    "SUCCESS".equals(result) ? 200 : 500, 0L, LocalDateTime.now());
+                    "SUCCESS".equals(result) ? 200 : 500, executionTime, LocalDateTime.now());
         } catch (RuntimeException persistenceError) {
             log.warn("Could not persist operation audit: action={}, reason={}", action, persistenceError.getMessage());
         }
