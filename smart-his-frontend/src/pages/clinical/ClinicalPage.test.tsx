@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClinicalPage } from './ClinicalPage'
 import { clinicalApi } from '@/services/clinicalApi'
 import { patientApi } from '@/services/patientApi'
+import { pharmaApi } from '@/services/pharmaApi'
 import { registrationApi } from '@/services/registrationApi'
 
 vi.mock('@/services/clinicalApi', () => ({ clinicalApi: {
@@ -13,6 +14,9 @@ vi.mock('@/services/clinicalApi', () => ({ clinicalApi: {
   listRecordTemplates: vi.fn(), createRecordTemplate: vi.fn(), updateRecordTemplate: vi.fn(), deleteRecordTemplate: vi.fn(),
 } }))
 vi.mock('@/services/patientApi', () => ({ patientApi: { getById: vi.fn() } }))
+vi.mock('@/services/pharmaApi', () => ({ pharmaApi: {
+  queryDrugs: vi.fn(), queryAllergyCross: vi.fn(), checkDrugInteraction: vi.fn(), queryDoseLimits: vi.fn(),
+} }))
 vi.mock('@/services/registrationApi', () => ({ registrationApi: {
   queryRegistrations: vi.fn(), getEncounterByRegistration: vi.fn(), openEncounter: vi.fn(), closeEncounter: vi.fn(),
 } }))
@@ -35,6 +39,8 @@ describe('ClinicalPage', () => {
     vi.mocked(clinicalApi.listExamRequests).mockResolvedValue([])
     vi.mocked(clinicalApi.listCommonPhrases).mockResolvedValue([])
     vi.mocked(clinicalApi.listRecordTemplates).mockResolvedValue([])
+    vi.mocked(pharmaApi.queryDrugs).mockResolvedValue({ records: [], total: 0, page: 1, size: 20, totalPages: 0 })
+    vi.mocked(pharmaApi.queryAllergyCross).mockResolvedValue([])
   })
 
   it('shows patient safety information and locks clinical editing before the encounter starts', async () => {
@@ -78,5 +84,12 @@ describe('ClinicalPage', () => {
     expect(clinicalApi.createCommonPhrase).toBeDefined()
     expect(clinicalApi.updateCommonPhrase).toBeDefined()
     expect(clinicalApi.deleteCommonPhrase).toBeDefined()
+  })
+
+  it('includes drug validation API methods in pharmaApi', () => {
+    expect(pharmaApi.queryDrugs).toBeDefined()
+    expect(pharmaApi.queryAllergyCross).toBeDefined()
+    expect(pharmaApi.checkDrugInteraction).toBeDefined()
+    expect(pharmaApi.queryDoseLimits).toBeDefined()
   })
 })

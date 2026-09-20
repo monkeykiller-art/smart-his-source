@@ -1,5 +1,6 @@
 package com.smarthis.gateway.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthis.gateway.config.SecurityProperties;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Encoders;
@@ -30,7 +31,7 @@ class JwtAuthGlobalFilterTest {
         ReactiveStringRedisTemplate redisTemplate = mock(ReactiveStringRedisTemplate.class);
         when(redisTemplate.hasKey(anyString())).thenReturn(Mono.just(false));
 
-        JwtAuthGlobalFilter filter = new JwtAuthGlobalFilter(secret, new SecurityProperties(), redisTemplate);
+        JwtAuthGlobalFilter filter = new JwtAuthGlobalFilter(secret, new SecurityProperties(), redisTemplate, new ObjectMapper());
         String token = Jwts.builder()
                 .subject("1001")
                 .claim("un", "admin")

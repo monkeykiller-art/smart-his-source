@@ -44,3 +44,19 @@ export interface RxReview {
   warningCount: number; errorCount: number; items?: RxReviewItem[]
 }
 export interface RxReviewPage { records: RxReview[]; total: number; page: number; size: number; totalPages: number }
+
+export interface DrugInteraction {
+  id: EntityId; drugCodeA: string; drugCodeB: string; interactionLevel: string
+  interactionDesc: string; suggestion?: string; reference?: string; isActive: number
+}
+
+export interface DoseLimit {
+  id: EntityId; drugCode: string; patientType: string; ageMin?: number; ageMax?: number
+  route?: string; maxSingleDose: number; maxSingleUnit: string; maxDailyDose: number
+  maxDailyUnit: string; maxFreqPerDay?: number; description?: string; isActive: number
+}
+
+export interface DrugAllergyCross {
+  id: EntityId; allergyCode: string; allergyName: string; crossDrugCode: string
+  crossDrugName: string; crossLevel: string; description?: string; isActive: number
+}

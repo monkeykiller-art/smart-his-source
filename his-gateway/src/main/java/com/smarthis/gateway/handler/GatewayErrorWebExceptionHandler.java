@@ -41,12 +41,19 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
 
         if (ex instanceof ResponseStatusException rse) {
             status = HttpStatus.valueOf(rse.getStatusCode().value());
-            code = status.value();
+            code = toBusinessCode(status.value());
             message = rse.getReason() != null ? rse.getReason() : status.getReasonPhrase();
         } else {
+            log.error("Unhandled gateway exception", ex);
             status = HttpStatus.INTERNAL_SERVER_ERROR;
-            code = 500;
+            code = 5000;
             message = "gateway internal error";
+        }
+
+        if (status.value() >= 500) {
+            log.error("Gateway error [{}] {} — {}", status.value(), message, exchange.getRequest().getURI(), ex);
+        } else {
+            log.warn("Gateway error [{}] {} — {}", status.value(), message, exchange.getRequest().getURI());
         }
 
         response.setStatusCode(status);
@@ -62,10 +69,23 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
             DataBuffer buffer = response.bufferFactory().wrap(bytes);
             return response.writeWith(Mono.just(buffer));
         } catch (JsonProcessingException e) {
-            byte[] fallback = ("{\"code\":" + code + ",\"message\":\"" + message + "\"}")
+            byte[] fallback = ("{\"code\":" + code + ",\"message\":\"" + message + "\",\"data\":null}")
                     .getBytes(StandardCharsets.UTF_8);
             DataBuffer buffer = response.bufferFactory().wrap(fallback);
             return response.writeWith(Mono.just(buffer));
         }
+    }
+
+    private static int toBusinessCode(int httpStatus) {
+        return switch (httpStatus) {
+            case 400 -> 4000;
+            case 401 -> 4001;
+            case 403 -> 4003;
+            case 404 -> 4004;
+            case 405 -> 4005;
+            case 502 -> 5002;
+            case 503 -> 5001;
+            default -> httpStatus;
+        };
     }
 }

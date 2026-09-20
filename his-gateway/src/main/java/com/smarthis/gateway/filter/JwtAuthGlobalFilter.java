@@ -43,11 +43,12 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
     public JwtAuthGlobalFilter(
             @Value("${his.jwt.secret}") String secret,
             SecurityProperties securityProperties,
-            ReactiveStringRedisTemplate redisTemplate) {
+            ReactiveStringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper) {
         this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
         this.securityProperties = securityProperties;
         this.redisTemplate = redisTemplate;
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -133,6 +134,7 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange, int code, String message) {
+        log.warn("Auth rejected [{}] {} — {}", code, message, exchange.getRequest().getURI());
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
@@ -147,7 +149,7 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
             DataBuffer buffer = response.bufferFactory().wrap(bytes);
             return response.writeWith(Mono.just(buffer));
         } catch (JsonProcessingException e) {
-            byte[] fallback = ("{\"code\":" + code + ",\"message\":\"" + message + "\"}")
+            byte[] fallback = ("{\"code\":" + code + ",\"message\":\"" + message + "\",\"data\":null}")
                     .getBytes(StandardCharsets.UTF_8);
             DataBuffer buffer = response.bufferFactory().wrap(fallback);
             return response.writeWith(Mono.just(buffer));

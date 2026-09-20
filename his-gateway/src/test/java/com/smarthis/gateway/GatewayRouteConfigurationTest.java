@@ -22,7 +22,7 @@ class GatewayRouteConfigurationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"auth", "patient", "clinical", "operations", "pharma"})
+    @ValueSource(strings = {"auth", "patient", "clinical", "operations", "pharma", "emergency"})
     void legacyHealthEndpointIsAvailableThroughServiceApiPrefix(String service) {
         List<Map<String, Object>> routes = routes();
 
@@ -34,8 +34,7 @@ class GatewayRouteConfigurationTest {
         assertThat(healthRoute.get("uri")).isEqualTo("lb://his-" + service);
         assertThat(healthRoute.get("order")).isEqualTo(-1);
         assertThat(healthRoute.get("predicates")).isEqualTo(List.of("Path=/api/" + service + "/health"));
-        String expectedPath = "pharma".equals(service) ? "/api/pharma/health" : "/health";
-        assertThat(healthRoute.get("filters")).isEqualTo(List.of("SetPath=" + expectedPath));
+        assertThat(healthRoute.get("filters")).isEqualTo(List.of("SetPath=/health"));
     }
 
     private List<Map<String, Object>> routes() {

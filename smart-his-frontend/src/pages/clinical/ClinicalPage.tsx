@@ -6,9 +6,11 @@ import dayjs from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
 import { clinicalApi } from '@/services/clinicalApi'
 import { patientApi } from '@/services/patientApi'
+import { pharmaApi } from '@/services/pharmaApi'
 import { registrationApi } from '@/services/registrationApi'
 import { useAuthStore } from '@/stores/authStore'
 import type { ClinicalOrder, CommonPhrase, Diagnosis, ExamRequest, Icd10Item, MedicalRecord, MedicalRecordUpdateRequest, RecordTemplate, RecordTemplateContent } from '@/types/clinical'
+import type { DrugCatalog, EntityId } from '@/types/pharma'
 import { maskPhone } from '@/utils/maskSensitive'
 import { canCloseEncounter, ordersForEncounter } from './clinicalWorkflow'
 
@@ -58,6 +60,9 @@ export function ClinicalPage() {
   const [examResultForm] = Form.useForm<ExamResultValues>()
   const [draftSavedAt, setDraftSavedAt] = useState<string>()
   const [messageApi, messageContext] = message.useMessage()
+  const [drugKeyword, setDrugKeyword] = useState('')
+  const [selectedDrug, setSelectedDrug] = useState<DrugCatalog | null>(null)
+  const [allergyWarning, setAllergyWarning] = useState<string>()
   const selectedOrderType = Form.useWatch('orderType', orderForm)
   const today = dayjs().format('YYYY-MM-DD')
 
@@ -104,6 +109,21 @@ export function ClinicalPage() {
   const recordTemplatesQuery = useQuery({
     queryKey: ['record-templates'], queryFn: () => clinicalApi.listRecordTemplates(1), enabled: recordOpen && !editingRecord,
   })
+  const drugSearchQuery = useQuery({
+    queryKey: ['drug-search', drugKeyword],
+    queryFn: () => pharmaApi.queryDrugs({ page: 1, size: 20, keyword: drugKeyword, isActive: 1 }),
+    enabled: orderOpen && selectedOrderType === 'MEDICINE' && drugKeyword.trim().length > 0,
+  })
+  const allergyCrossQuery = useQuery({
+    queryKey: ['allergy-cross', patient.data?.allergyHistory],
+    queryFn: async () => {
+      const allergyText = patient.data?.allergyHistory?.trim() || ''
+      if (!allergyText || allergyText === '无') return []
+      const allCross = await pharmaApi.queryAllergyCross()
+      return allCross.filter((item) => allergyText.includes(item.allergyName) || allergyText.includes(item.allergyCode))
+    },
+    enabled: orderOpen && Boolean(patient.data?.allergyHistory),
+  })
   const phraseFieldMap: Record<string, keyof RecordFormValues> = {
     CHIEF_COMPLAINT: 'chiefComplaint', PRESENT_ILLNESS: 'presentIllness', PHYSICAL_EXAM: 'physicalExam', TREATMENT_PLAN: 'treatmentPlan',
   }
@@ -129,6 +149,15 @@ export function ClinicalPage() {
     } catch {
       message.error('模板内容解析失败')
     }
+  }
+  const selectDrug = (drugId: EntityId) => {
+    const drug = drugSearchQuery.data?.records.find((d) => d.id === drugId)
+    if (!drug) return
+    setSelectedDrug(drug)
+    orderForm.setFieldsValue({ itemName: drug.genericName, spec: drug.strength, unitPrice: drug.retailPrice })
+    const crossList = allergyCrossQuery.data || []
+    const matched = crossList.filter((item) => drug.drugCode === item.crossDrugCode || drug.genericName.includes(item.crossDrugName))
+    setAllergyWarning(matched.length > 0 ? `该药品与患者过敏史存在交叉过敏风险：${matched.map((m) => `${m.allergyName}→${m.crossDrugName}（${m.crossLevel}）`).join('；')}` : undefined)
   }
   const encounterOrders = useMemo(() => ordersForEncounter(orders.data || [], encounterId), [orders.data, encounterId])
   const canClose = canCloseEncounter(currentEncounterStatus, records.data || [], diagnoses.data || [])
@@ -371,11 +400,13 @@ export function ClinicalPage() {
         <Form.Item name="isPrimary" valuePropName="checked"><Checkbox>设为主诊断</Checkbox></Form.Item>
       </Form>
     </Modal>
-    <Modal title="开立医嘱" open={orderOpen} onCancel={() => { setOrderOpen(false); orderForm.resetFields() }} onOk={() => orderForm.submit()} okText="开立医嘱" cancelText="取消" confirmLoading={createOrder.isPending} width={720} destroyOnHidden>
+    <Modal title="开立医嘱" open={orderOpen} onCancel={() => { setOrderOpen(false); orderForm.resetFields(); setSelectedDrug(null); setAllergyWarning(undefined); setDrugKeyword('') }} onOk={() => orderForm.submit()} okText="开立医嘱" cancelText="取消" confirmLoading={createOrder.isPending} width={720} destroyOnHidden>
       <Form<OrderFormValues> form={orderForm} layout="vertical" className="clinical-order-form" onFinish={(values) => createOrder.mutate(values)} initialValues={{ orderType: 'MEDICINE', orderCategory: 'ROUTINE' }}>
-        <Form.Item name="orderType" label="医嘱类型" rules={[{ required: true }]}><Select options={Object.entries(orderTypeText).map(([value, label]) => ({ value, label }))} /></Form.Item>
+        <Form.Item name="orderType" label="医嘱类型" rules={[{ required: true }]}><Select options={Object.entries(orderTypeText).map(([value, label]) => ({ value, label }))} onChange={() => { setSelectedDrug(null); setAllergyWarning(undefined); setDrugKeyword('') }} /></Form.Item>
         <Form.Item name="orderCategory" label="医嘱类别" rules={[{ required: true }]}><Select options={[{ value: 'ROUTINE', label: '常规' }, { value: 'STAT', label: '紧急' }, { value: 'PRN', label: '必要时' }]} /></Form.Item>
-        <Form.Item name="itemName" label="项目名称" rules={[{ required: true, message: '请输入医嘱项目' }]}><Input placeholder="药品、检查或治疗项目" /></Form.Item>
+        {selectedOrderType === 'MEDICINE' && <Form.Item label="检索药品"><Select showSearch filterOption={false} allowClear placeholder="输入药品名称、拼音或编码检索" onSearch={(v) => setDrugKeyword(v.trim())} onChange={(id) => { if (id) selectDrug(id); else { setSelectedDrug(null); setAllergyWarning(undefined) } }} loading={drugSearchQuery.isFetching} notFoundContent={drugKeyword ? '未找到匹配药品，请在下方手工填写' : '请输入检索内容'} options={(drugSearchQuery.data?.records || []).map((d) => ({ value: d.id, label: `${d.drugCode} · ${d.genericName} · ${d.strength} · ¥${d.retailPrice}` }))} /></Form.Item>}
+        {allergyWarning && <Alert type="warning" showIcon message="交叉过敏风险提示" description={allergyWarning} style={{ marginBottom: 12 }} />}
+        <Form.Item name="itemName" label="项目名称" rules={[{ required: true, message: '请输入医嘱项目' }]}><Input placeholder={selectedOrderType === 'MEDICINE' ? '选择药品后自动填充，或手工输入' : '药品、检查或治疗项目'} /></Form.Item>
         <Form.Item name="spec" label="规格"><Input /></Form.Item>
         <Form.Item name="dose" label="单次剂量" rules={selectedOrderType === 'MEDICINE' ? [{ required: true, message: '药品医嘱需要填写剂量' }] : []}><InputNumber min={0.01} precision={2} style={{ width: '100%' }} /></Form.Item>
         <Form.Item name="doseUnit" label="剂量单位" rules={selectedOrderType === 'MEDICINE' ? [{ required: true, message: '请输入剂量单位' }] : []}><Input placeholder="mg、ml 等" /></Form.Item>

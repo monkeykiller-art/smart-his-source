@@ -1,6 +1,6 @@
 import { http } from './http'
 import type { ApiResponse } from '@/types/api'
-import type { Dispense, DispenseCreateRequest, DrugCatalog, DrugCatalogPage, DrugCatalogSaveRequest, EntityId, InventoryBatch, InventoryOperationRequest, InventoryTransaction, RxReview, RxReviewPage } from '@/types/pharma'
+import type { Dispense, DispenseCreateRequest, DrugAllergyCross, DrugCatalog, DrugCatalogPage, DrugCatalogSaveRequest, DrugInteraction, DoseLimit, EntityId, InventoryBatch, InventoryOperationRequest, InventoryTransaction, RxReview, RxReviewPage } from '@/types/pharma'
 
 export const pharmaApi = {
   async queryDrugs(params: { page: number; size: number; keyword?: string; isActive?: number }) {
@@ -62,5 +62,21 @@ export const pharmaApi = {
   async rejectReview(id: EntityId, rejectReason: string, reviewerId?: EntityId, reviewerName?: string) {
     const response = await http.put<ApiResponse<RxReview>>(`/pharma/rx-reviews/${id}/reject`, { rejectReason }, { params: { reviewerId, reviewerName } })
     return response.data.data
+  },
+  async checkDrugInteraction(drugCodeA: string, drugCodeB: string) {
+    const response = await http.post<ApiResponse<DrugInteraction[]>>('/pharma/drug-interactions/check', { drugCodeA, drugCodeB })
+    return response.data.data
+  },
+  async queryDoseLimits(drugCode?: string) {
+    const params: Record<string, any> = { page: 1, size: 50 }
+    if (drugCode) params.drugCode = drugCode
+    const response = await http.get<ApiResponse<{ records: DoseLimit[] }>>('/pharma/dose-limits', { params })
+    return response.data.data.records
+  },
+  async queryAllergyCross(allergyCode?: string) {
+    const params: Record<string, any> = { page: 1, size: 100 }
+    if (allergyCode) params.allergyCode = allergyCode
+    const response = await http.get<ApiResponse<{ records: DrugAllergyCross[] }>>('/pharma/allergy-cross', { params })
+    return response.data.data.records
   },
 }
