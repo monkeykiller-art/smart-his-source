@@ -221,7 +221,13 @@ public class AdmissionServiceImpl implements AdmissionService {
                 .eq(Admission::getDeleted, 0)
                 .orderByDesc(Admission::getAdmissionDate);
         List<Admission> admissions = admissionMapper.selectList(query);
-        return admissions.stream().map(AdmissionConverter::toVo).toList();
+        Patient patient = patientMapper.selectById(patientId);
+        String patientName = patient != null ? patient.getName() : null;
+        return admissions.stream().map(vo -> {
+            AdmissionVo admissionVo = AdmissionConverter.toVo(vo);
+            admissionVo.setPatientName(patientName);
+            return admissionVo;
+        }).toList();
     }
 
     private Admission getEntity(Long id) {

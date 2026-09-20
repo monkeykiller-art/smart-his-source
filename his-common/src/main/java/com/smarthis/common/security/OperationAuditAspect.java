@@ -48,7 +48,7 @@ public class OperationAuditAspect {
             jdbc.update("INSERT INTO his_auth.auth_operation_log "
                             + "(id,user_id,username,operation_type,module,description,response_code,execution_time,operation_time) "
                             + "VALUES (?,?,?,?,?,?,?,?,?)",
-                    Math.abs(UUID.randomUUID().getMostSignificantBits()),
+                    UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE,
                     context == null ? null : context.getUserId(), context == null ? null : context.getUsername(),
                     action, "permission", resource + (detail == null ? "" : " (" + detail + ")"),
                     "SUCCESS".equals(result) ? 200 : 500, executionTime, LocalDateTime.now());

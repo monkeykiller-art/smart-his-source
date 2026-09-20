@@ -4,6 +4,7 @@ import com.smarthis.common.exception.BusinessException;
 import com.smarthis.common.model.ErrorCode;
 import com.smarthis.common.support.BizNoGenerator;
 import com.smarthis.patient.dto.request.AdmissionTransferRequest;
+import com.smarthis.patient.dto.request.AdmissionQueryRequest;
 import com.smarthis.patient.entity.Admission;
 import com.smarthis.patient.entity.AdmissionTransfer;
 import com.smarthis.patient.entity.Patient;
@@ -21,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 class AdmissionServiceImplTest {
     private final AdmissionMapper admissionMapper = mock(AdmissionMapper.class);
@@ -76,6 +78,34 @@ class AdmissionServiceImplTest {
 
         assertEquals(ErrorCode.ADMISSION_STATUS_INVALID.getCode(), error.getCode());
         verify(transferMapper, never()).insert(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void listLoadsPatientNamesInOneBatch() {
+        Admission first = admission("ADMITTED");
+        Admission second = admission("PLANNED");
+        second.setId(11L);
+        second.setPatientId(21L);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Admission> page =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        page.setRecords(java.util.List.of(first, second));
+        page.setTotal(2);
+        when(admissionMapper.selectPage(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(page);
+        Patient firstPatient = new Patient();
+        firstPatient.setId(20L);
+        firstPatient.setName("患者甲");
+        Patient secondPatient = new Patient();
+        secondPatient.setId(21L);
+        secondPatient.setName("患者乙");
+        when(patientMapper.selectBatchIds(java.util.List.of(20L, 21L))).thenReturn(java.util.List.of(firstPatient, secondPatient));
+
+        var result = service.list(new AdmissionQueryRequest());
+
+        assertEquals(2, result.getRecords().size());
+        assertEquals("患者甲", result.getRecords().get(0).getPatientName());
+        assertEquals("患者乙", result.getRecords().get(1).getPatientName());
+        verify(patientMapper, times(1)).selectBatchIds(java.util.List.of(20L, 21L));
+        verify(patientMapper, never()).selectById(org.mockito.ArgumentMatchers.any());
     }
 
     private static Admission admission(String status) {
