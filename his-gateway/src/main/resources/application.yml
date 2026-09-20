@@ -58,7 +58,7 @@ spring:
           predicates:
             - Path=/api/pharma/health
           filters:
-            - SetPath=/api/pharma/health
+            - SetPath=/health
         - id: his-emergency-health
           uri: lb://his-emergency
           order: -1
